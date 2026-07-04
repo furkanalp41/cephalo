@@ -1,0 +1,236 @@
+# Cephalo content — BloodHound section (cypher library + edge→abuse table)
+# Authorized testing only. Cypher interpolates {{DOMAIN}} like any CommandCard.
+# {{DOMAIN|upper}} matches BloodHound's upper-cased object names.
+# edge-abuse rows link to an authored P10 technique via abuseTechniqueId (no
+# command duplication). legacyUI rows render an [UNVERIFIED] schema-divergence note.
+bloodhound:
+  # ---------- cypher library ----------
+  - id: bh.owned-to-da
+    title: Shortest path from Owned to Domain Admins
+    cypher: "MATCH p=shortestPath((s)-[*1..]->(g:Group)) WHERE s.owned=true AND g.name='DOMAIN ADMINS@{{DOMAIN|upper}}' RETURN p"
+    category: attack-path
+    description: The headline query — any path from a node you own to Domain Admins.
+    abuse: Walk each edge on the returned path; every edge type maps to an abuse in the table below.
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+    tags: [bloodhound, acl-abuse]
+
+  - id: bh.kerberoastable
+    title: Kerberoastable users
+    cypher: "MATCH (u:User {hasspn:true}) RETURN u.name, u.serviceprincipalnames ORDER BY u.name"
+    category: attack-path
+    description: Users with a Service Principal Name — their TGS is crackable offline.
+    abuse: Request the TGS and crack it.
+    abuseTechniqueId: ad.credaccess.kerberoast
+    references: [ref.bloodhound]
+    confidence: verified
+    tags: [kerberoasting, bloodhound]
+
+  - id: bh.asreproastable
+    title: AS-REP roastable users
+    cypher: "MATCH (u:User {dontreqpreauth:true}) RETURN u.name ORDER BY u.name"
+    category: attack-path
+    description: Users without Kerberos pre-auth — their AS-REP is crackable offline.
+    abuse: Request the AS-REP and crack it.
+    abuseTechniqueId: ad.credaccess.asreproast
+    references: [ref.bloodhound]
+    confidence: verified
+    tags: [asreproasting, bloodhound]
+
+  - id: bh.unconstrained
+    title: Unconstrained delegation hosts
+    cypher: "MATCH (c:Computer {unconstraineddelegation:true}) RETURN c.name ORDER BY c.name"
+    category: attack-path
+    description: Computers trusted for unconstrained delegation cache TGTs of any caller.
+    abuse: Coerce a privileged auth to the host, then extract the cached TGT.
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+    tags: [unconstrained-delegation, bloodhound]
+
+  - id: bh.dcsync-principals
+    title: DCSync-capable principals
+    cypher: "MATCH (n)-[:GetChanges|GetChangesAll|DCSync]->(d:Domain {name:'{{DOMAIN|upper}}'}) RETURN n.name"
+    category: attack-path
+    description: Principals holding replication rights — i.e. anyone who can DCSync.
+    abuse: Replicate secrets (incl. krbtgt) from the DC.
+    abuseTechniqueId: ad.credaccess.dcsync
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+    tags: [dcsync, bloodhound]
+
+  - id: bh.adminto-owned
+    title: AdminTo from owned principals
+    cypher: "MATCH p=(s)-[:AdminTo|MemberOf*1..]->(c:Computer) WHERE s.owned=true RETURN p"
+    category: attack-path
+    description: Hosts where a principal you own has local admin.
+    abuse: Authenticate to the host as admin and execute.
+    abuseTechniqueId: ad.lateral.psexec
+    references: [ref.bloodhound]
+    confidence: verified
+    tags: [pass-the-hash, bloodhound]
+
+  - id: bh.dangerous-acl
+    title: Dangerous outbound ACLs from owned
+    cypher: "MATCH p=(s)-[:GenericAll|GenericWrite|WriteDacl|WriteOwner|Owns|ForceChangePassword|AddMember*1..]->(t) WHERE s.owned=true RETURN p"
+    category: attack-path
+    description: Outbound control edges you can abuse from nodes you already own.
+    abuse: Walk each edge using the edge→abuse table.
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+    tags: [acl-abuse, bloodhound]
+
+  - id: bh.high-value-sessions
+    title: Sessions on high-value targets
+    cypher: "MATCH (u:User)-[:HasSession]->(c:Computer) WHERE u.highvalue=true RETURN u.name, c.name"
+    category: enumeration
+    description: Where high-value users have live sessions (credential-theft targets).
+    abuse: Compromise the host and steal the session's credentials/tickets.
+    references: [ref.bloodhound]
+    confidence: verified
+    tags: [bloodhound, lateral-movement]
+
+  - id: bh.rbcd-writable
+    title: RBCD-writable targets
+    cypher: "MATCH p=(s)-[:GenericAll|GenericWrite|WriteDacl|Owns]->(c:Computer) WHERE s.owned=true RETURN p"
+    category: attack-path
+    description: Computers whose msDS-AllowedToActOnBehalfOfOtherIdentity you can write.
+    abuse: Configure RBCD to a controlled account, then S4U to impersonate.
+    abuseTechniqueId: ad.acl.rbcd
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+    tags: [rbcd, bloodhound]
+
+  - id: bh.mark-owned
+    title: Mark a principal as owned
+    cypher: "MATCH (n) WHERE n.name='{{USER}}@{{DOMAIN|upper}}' SET n.owned=true RETURN n.name"
+    category: cleanup
+    description: Tag a compromised principal so path queries start from it.
+    abuse: Run after each compromise to keep Owned→DA paths current.
+    references: [ref.bloodhound]
+    confidence: verified
+    tags: [bloodhound]
+
+  # ---------- edge → abuse → command table ----------
+  - id: bh.edge.dcsync
+    title: "Edge: DCSync / GetChanges / GetChangesAll"
+    cypher: "MATCH (n)-[:GetChanges|GetChangesAll]->(d:Domain) RETURN n.name"
+    category: edge-abuse
+    edge: DCSync
+    description: Grants the right to replicate directory secrets from the domain.
+    abuse: Run a DCSync (secretsdump) to pull NT hashes including krbtgt.
+    abuseTechniqueId: ad.credaccess.dcsync
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+  - id: bh.edge.adminto
+    title: "Edge: AdminTo"
+    cypher: "MATCH (s)-[:AdminTo]->(c:Computer) WHERE s.owned=true RETURN s.name, c.name"
+    category: edge-abuse
+    edge: AdminTo
+    description: Local administrator on the target computer.
+    abuse: Authenticate as admin and get a SYSTEM shell.
+    abuseTechniqueId: ad.lateral.psexec
+    references: [ref.bloodhound]
+    confidence: verified
+  - id: bh.edge.canpsremote
+    title: "Edge: CanPSRemote"
+    cypher: "MATCH (s)-[:CanPSRemote]->(c:Computer) WHERE s.owned=true RETURN s.name, c.name"
+    category: edge-abuse
+    edge: CanPSRemote
+    description: Member of Remote Management Users — WinRM access.
+    abuse: Open an interactive PowerShell session over WinRM.
+    abuseTechniqueId: ad.lateral.evil-winrm
+    references: [ref.bloodhound]
+    confidence: verified
+  - id: bh.edge.genericall
+    title: "Edge: GenericAll"
+    cypher: "MATCH (s)-[:GenericAll]->(t) WHERE s.owned=true RETURN s.name, labels(t), t.name"
+    category: edge-abuse
+    edge: GenericAll
+    description: Full control over the target object.
+    abuse: Reset a user's password, add to a group, or write Shadow Credentials.
+    abuseTechniqueId: ad.acl.addmember
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+  - id: bh.edge.forcechangepassword
+    title: "Edge: ForceChangePassword"
+    cypher: "MATCH (s)-[:ForceChangePassword]->(u:User) WHERE s.owned=true RETURN s.name, u.name"
+    category: edge-abuse
+    edge: ForceChangePassword
+    description: Reset the target user's password without knowing the old one.
+    abuse: Reset the password, then authenticate as the user.
+    abuseTechniqueId: ad.acl.forcechangepw
+    references: [ref.bloodhound]
+    confidence: verified
+  - id: bh.edge.addkeycredentiallink
+    title: "Edge: AddKeyCredentialLink (Shadow Credentials)"
+    cypher: "MATCH (s)-[:AddKeyCredentialLink]->(t) WHERE s.owned=true RETURN s.name, t.name"
+    category: edge-abuse
+    edge: AddKeyCredentialLink
+    description: Write to msDS-KeyCredentialLink — Shadow Credentials.
+    abuse: Add a key credential, then PKINIT for the target's NT hash/TGT.
+    abuseTechniqueId: ad.acl.shadowcred
+    legacyUI: true
+    references: [ref.bloodhound, ref.certipy]
+    confidence: unverified
+  - id: bh.edge.rbcd
+    title: "Edge: AllowedToAct (RBCD)"
+    cypher: "MATCH (s)-[:AllowedToAct]->(c:Computer) RETURN s.name, c.name"
+    category: edge-abuse
+    edge: AllowedToAct
+    description: Resource-Based Constrained Delegation configured to the principal.
+    abuse: S4U2Self/Proxy to impersonate any user to the target's services.
+    abuseTechniqueId: ad.acl.rbcd
+    legacyUI: true
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: unverified
+  - id: bh.edge.readgmsapassword
+    title: "Edge: ReadGMSAPassword"
+    cypher: "MATCH (s)-[:ReadGMSAPassword]->(c:Computer) WHERE s.owned=true RETURN s.name, c.name"
+    category: edge-abuse
+    edge: ReadGMSAPassword
+    description: Read a gMSA managed password blob.
+    abuse: Recover the gMSA NT hash and use it for Pass-the-Hash.
+    abuseTechniqueId: ad.lateral.psexec
+    references: [ref.bloodhound]
+    confidence: verified
+  - id: bh.edge.readlapspassword
+    title: "Edge: ReadLAPSPassword"
+    cypher: "MATCH (s)-[:ReadLAPSPassword]->(c:Computer) WHERE s.owned=true RETURN s.name, c.name"
+    category: edge-abuse
+    edge: ReadLAPSPassword
+    description: Read the LAPS-managed local admin password of the computer.
+    abuse: Recover the local admin password and log in.
+    abuseTechniqueId: ad.lateral.evil-winrm
+    references: [ref.bloodhound]
+    confidence: verified
+  - id: bh.edge.writeowner
+    title: "Edge: WriteOwner"
+    cypher: "MATCH (s)-[:WriteOwner]->(t) WHERE s.owned=true RETURN s.name, labels(t), t.name"
+    category: edge-abuse
+    edge: WriteOwner
+    description: Set yourself as the object's owner (owner can always write the DACL).
+    abuse: Take ownership, then WriteDACL to grant full control.
+    abuseTechniqueId: ad.acl.writeowner
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+  - id: bh.edge.writedacl
+    title: "Edge: WriteDacl"
+    cypher: "MATCH (s)-[:WriteDacl]->(t) WHERE s.owned=true RETURN s.name, labels(t), t.name"
+    category: edge-abuse
+    edge: WriteDacl
+    description: Write a new ACE on the target — incl. DCSync rights on the domain.
+    abuse: Grant yourself FullControl or replication (DCSync) rights.
+    abuseTechniqueId: ad.acl.writedacl
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+  - id: bh.edge.gplink
+    title: "Edge: GPLink / writable GPO"
+    cypher: "MATCH (s)-[:GenericWrite|WriteDacl|Owns]->(g:GPO) WHERE s.owned=true RETURN s.name, g.name"
+    category: edge-abuse
+    edge: GPLink
+    description: Control over a GPO (or its link) linked to users/computers.
+    abuse: Push an immediate scheduled task/script to objects in the GPO's scope.
+    abuseTechniqueId: ad.acl.gpo
+    legacyUI: true
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: unverified

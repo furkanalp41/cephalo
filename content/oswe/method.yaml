@@ -1,0 +1,47 @@
+sections:
+  - id: oswe.p0
+    title: 'OSWE — Methodology'
+    os: linux
+    order: 300
+    techniques: [oswe.method.tooling, oswe.method.sourcereview]
+    packs: [oswe]
+techniques:
+  - id: oswe.method.tooling
+    title: 'Web tooling & methodology'
+    os: [linux]
+    phase: web
+    summary: 'Proxy + scanner setup for white-box web review (OSWE).'
+    commands: [oswe.method.tooling.nuclei]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.method.sourcereview
+    title: 'Source-code analysis (white-box)'
+    os: [linux]
+    phase: web
+    summary: 'Sink-to-source review of dangerous functions across the codebase.'
+    commands: [oswe.method.sourcereview.grep]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+commands:
+  - id: oswe.method.tooling.nuclei
+    title: 'nuclei — high/critical templates'
+    template: 'nuclei -u {{URL}} -severity high,critical'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.method.sourcereview.grep
+    title: 'grep dangerous sinks in source'
+    template: 'grep -rniE "(eval|exec|deserialize|unserialize|Runtime\.exec)" {{SOURCE_DIR}}'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]

@@ -1,0 +1,37 @@
+/* styles/theme.ad.css — REALM: ad "Forest of Trust" (oxblood-violet + gold). */
+[data-os='ad'] {
+  --cph-color-bg: #120a15;
+  --cph-color-surface: #1e1224;
+  --cph-color-surface-raised: #2c1a36;
+  --cph-color-border: #4a2e55;
+  --cph-color-text: #f1e8f2;
+  --cph-color-text-muted: #bba3c4;
+  --cph-color-primary: #b07ce8;
+  --cph-color-primary-contrast: #160a1c;
+  --cph-color-accent: #e8c24a;
+  --cph-color-focus: #c79bf0;
+  --cph-color-danger: #f0635a;
+  --cph-color-success: #57c98c;
+
+  --cph-octo-tint: #3a2148;
+  --cph-octo-thinking: #b07ce8;
+  --cph-octo-found: #e8c24a;
+  --cph-octo-glow: 0 0 32px rgba(176, 124, 232, 0.4);
+
+  --cph-elev-3: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(176, 124, 232, 0.1);
+  --cph-elev-4: 0 14px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(176, 124, 232, 0.14);
+
+  /* v2 arsenal re-tint (ad) — DESIGN-PROMPT-v2 */
+  --cph-ask-bg: #0c0610;
+  --cph-ask-surface: #190f1f;
+  --cph-ask-input-bg: #140b1a;
+  --cph-ask-octo-halo: radial-gradient(60% 60% at 50% 42%, rgba(176, 124, 232, 0.24), rgba(176, 124, 232, 0) 70%);
+  --cph-ask-result-accent: #b07ce8;
+  --cph-ask-explain-fg: #c3a9cc;
+  --cph-intent-pin-accent: #e8c24a;
+  --cph-octo-large-glow: 0 0 120px 12px rgba(176, 124, 232, 0.3), 0 0 56px rgba(176, 124, 232, 0.22);
+  --cph-advisor-rank-1: #b07ce8;
+  --cph-nmap-confirm-bg: rgba(176, 124, 232, 0.16);
+}

@@ -1,0 +1,180 @@
+/* styles/theme.base.css — DESIGN token VALUES (the "Abyssal Instrument" identity).
+ * Defines EVERY --cph-* KEY in TOKEN_KEYS at :root so dependent tokens resolve
+ * with no data-os present (the linux/Phosphor-Reef palette is the universal base).
+ * Realm files (theme.{linux,windows,ad}.css) override these SAME keys only.
+ * CODE owns KEYS; these VALUES are the DESIGN deliverable per DESIGN-PROMPT §2. */
+:root {
+  /* ---- color (12) — base = Phosphor Reef (linux) ---- */
+  --cph-color-bg: #07120f;
+  --cph-color-surface: #0e1f1a;
+  --cph-color-surface-raised: #15302a;
+  --cph-color-border: #244a41;
+  --cph-color-text: #e6f2ec;
+  --cph-color-text-muted: #9fbdb2;
+  --cph-color-primary: #2bd4a8;
+  --cph-color-primary-contrast: #04120d;
+  --cph-color-accent: #f2b33d;
+  --cph-color-focus: #57e6c2;
+  --cph-color-danger: #f0635a;
+  --cph-color-success: #57d08a;
+
+  /* ---- octo (12) — base/linux chromatophore palette ---- */
+  --cph-octo-idle: #2bb89a;
+  --cph-octo-greeting: #45d6b0;
+  --cph-octo-listening: #57e6c2;
+  --cph-octo-thinking: #6aa0ff;
+  --cph-octo-found: #f2b33d;
+  --cph-octo-empty: #6e8a82;
+  --cph-octo-copied: #57d08a;
+  --cph-octo-error: #f0635a;
+  --cph-octo-celebrate: #ff7ac6;
+  --cph-octo-ink: #0a0f0d;
+  --cph-octo-glow: 0 0 32px rgba(43, 212, 168, 0.45);
+  --cph-octo-tint: #1b6e5e;
+
+  /* ---- severity (5) — single shared ramp (danger AND node heat) ---- */
+  --cph-sev-info: #5bc8d6;
+  --cph-sev-low: #6fb36b;
+  --cph-sev-medium: #e0b341;
+  --cph-sev-high: #e8803a;
+  --cph-sev-critical: #e8554e;
+
+  /* ---- variable (4) — the RevShells loop heart ---- */
+  --cph-var-set: var(--cph-color-primary);
+  --cph-var-unset: #c9a24b;
+  --cph-var-invalid: var(--cph-color-danger);
+  --cph-var-token-bg: rgba(127, 127, 127, 0.14);
+
+  /* ---- confidence (2) ---- */
+  --cph-confidence-verified: var(--cph-color-success);
+  --cph-confidence-unverified: var(--cph-color-accent);
+
+  /* ---- copy (2) ---- */
+  --cph-copy-success: var(--cph-color-success);
+  --cph-copy-flash: rgba(87, 208, 138, 0.22);
+
+  /* ---- node (8) — phase colors (constant across realms) ---- */
+  --cph-node-recon: #5bc8d6;
+  --cph-node-enum: #4ea3e0;
+  --cph-node-exploit: #e8803a;
+  --cph-node-privesc: #e8554e;
+  --cph-node-lateral: #b07ce8;
+  --cph-node-persistence: #c9933a;
+  --cph-node-outcome: #57d08a;
+  --cph-node-decision: #e0b341;
+
+  /* ---- elevation (9) ---- */
+  --cph-elev-0: none;
+  --cph-elev-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --cph-elev-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --cph-elev-3: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(43, 212, 168, 0.1);
+  --cph-elev-4: 0 14px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(43, 212, 168, 0.14);
+  --cph-radius-sm: 4px;
+  --cph-radius-md: 8px;
+  --cph-radius-lg: 14px;
+  --cph-radius-full: 9999px;
+
+  /* ---- motion (6) ---- */
+  --cph-motion-fast: 120ms;
+  --cph-motion-base: 220ms;
+  --cph-motion-slow: 420ms;
+  --cph-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --cph-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.1);
+  --cph-ease-octo: cubic-bezier(0.34, 1.56, 0.45, 1);
+
+  /* ---- type (15) ---- */
+  --cph-font-sans: 'Inter var', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --cph-font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --cph-fs-xs: 0.75rem;
+  --cph-fs-sm: 0.8125rem;
+  --cph-fs-md: 0.9375rem;
+  --cph-fs-lg: 1.125rem;
+  --cph-fs-xl: 1.5rem;
+  --cph-fs-2xl: 2rem;
+  --cph-lh-tight: 1.25;
+  --cph-lh-normal: 1.55;
+  --cph-fw-regular: 400;
+  --cph-fw-medium: 530;
+  --cph-fw-bold: 680;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cph-motion-fast: 1ms;
+    --cph-motion-base: 1ms;
+    --cph-motion-slow: 1ms;
+    --cph-ease-octo: linear;
+    --cph-ease-emphasized: linear;
+  }
+}
+
+/* DESIGN VALUES — v2 arsenal (38 keys), from DESIGN-PROMPT-v2 "Ask the Octopus".
+ * Base = the linux/Phosphor-Reef palette; theme.{windows,ad}.css re-tint a subset.
+ * The 12 pack (--cph-pack-*) keys are v3 and are NOT declared here yet (v3 unbuilt). */
+:root {
+  /* ask (9) */
+  --cph-ask-bg: #050d0b;
+  --cph-ask-surface: #0c1a16;
+  --cph-ask-input-bg: #0a1713;
+  --cph-ask-octo-halo: radial-gradient(60% 60% at 50% 42%, rgba(43, 212, 168, 0.22), rgba(43, 212, 168, 0) 70%);
+  --cph-ask-suggestion: #9fbdb2;
+  --cph-ask-result-accent: #2bd4a8;
+  --cph-ask-explain-fg: #7fb8ab;
+  --cph-intent-pin-accent: #f2b33d;
+  --cph-octo-large-glow: 0 0 120px 12px rgba(43, 212, 168, 0.3), 0 0 56px rgba(43, 212, 168, 0.22);
+  /* advisor (6) */
+  --cph-advisor-signal-detected: #57e6c2;
+  --cph-advisor-signal-strong: #f2b33d;
+  --cph-advisor-signal-weak: #6e8a82;
+  --cph-advisor-signal-unverified: #e8c24a;
+  --cph-advisor-rank-1: #2bd4a8;
+  --cph-advisor-rank-track: rgba(127, 127, 127, 0.16);
+  /* decision (9) */
+  --cph-dec-node-check: #4ea3e0;
+  --cph-dec-node-action: #e8803a;
+  --cph-dec-node-outcome-system: #57d08a;
+  --cph-dec-node-outcome-da: #e8c24a;
+  --cph-dec-branch-if-found: #57d08a;
+  --cph-dec-branch-if-absent: #c98a3a;
+  --cph-dec-branch-else: #8294a0;
+  --cph-dec-branch-manual: #b07ce8;
+  --cph-dec-trace: rgba(87, 230, 194, 0.85);
+  /* tool (3) */
+  --cph-tool-verified-src: #57d08a;
+  --cph-tool-kali-path-bg: rgba(78, 163, 224, 0.14);
+  --cph-tool-fetch-warn: #e8c24a;
+  /* cve (4) */
+  --cph-cve-match-exact: #57d08a;
+  --cph-cve-match-fuzzy: #e8c24a;
+  --cph-cve-degraded: #e8803a;
+  --cph-cve-edb-bg: rgba(232, 128, 58, 0.16);
+  /* nmap (5) — realm hues are CONSTANT across the three skins */
+  --cph-nmap-realm-ad: #b07ce8;
+  --cph-nmap-realm-windows: #3a9bff;
+  --cph-nmap-realm-linux: #2bd4a8;
+  --cph-nmap-confirm-bg: rgba(43, 212, 168, 0.16);
+  --cph-nmap-explain-fg: #7fb8ab;
+  /* shared (2) */
+  --cph-unverified-badge-bg: rgba(232, 194, 74, 0.14);
+  --cph-unverified-badge-fg: #e8c24a;
+}
+
+/* DESIGN VALUES — v3 pack signets (12 keys). Pack hues are REALM-CONSTANT; no realm
+ * file overrides them. Stub hues from the v2 design import; the v3 "Reef Heraldry"
+ * design replaces these VALUES with no code change. */
+:root {
+  --cph-pack-oscp: #7c96b8;
+  --cph-pack-oscp-contrast: #0b0f14;
+  --cph-pack-oswe: #6f84ee;
+  --cph-pack-oswe-contrast: #0b0f14;
+  --cph-pack-osep: #c56fdc;
+  --cph-pack-osep-contrast: #0b0f14;
+  --cph-pack-osed: #dc6bc6;
+  --cph-pack-osed-contrast: #0b0f14;
+  --cph-pack-osee: #e86b9e;
+  --cph-pack-osee-contrast: #0b0f14;
+  --cph-pack-badge-bg: var(--cph-color-surface-raised);
+  --cph-pack-badge-ring: var(--cph-color-border);
+}

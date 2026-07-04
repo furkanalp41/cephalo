@@ -1,0 +1,257 @@
+# coverage.manifest.yaml — ABSTRACT technique coverage + archetype-frequency bands.
+# NO machine names, NO box hints — coverage is expressed only as technique IDs and
+# archetype bands ([CORE/HIGH/MED/LOW]). TJnull/Section-18 framing is a citation
+# source, never a data source. Bands: core|high|medium|low.
+schemaVersion: 1
+bands:
+  core: Exam-critical; must resolve to >=1 compiling command and is marked requiredForOscpReadiness.
+  high: Frequently useful across the archetype space.
+  medium: Situational but worth knowing.
+  low: Rare / last-resort.
+
+techniques:
+  # ---- AD finishers ----
+  - { id: ad.enum.bhsetup, band: high }
+  - { id: ad.enum.e4lng, band: high }
+  - { id: ad.enum.smtp, band: medium }
+  - { id: ad.tool.whisker, band: medium }
+  - { id: ad.tool.adrecon, band: low }
+  # ---- Linux services (LX-2) ----
+  - { id: linux.enum.dns, band: medium }
+  - { id: linux.enum.mail, band: low }
+  - { id: linux.enum.nfs, band: high }
+  - { id: linux.enum.snmp, band: medium }
+  - { id: linux.enum.db, band: medium }
+  - { id: linux.enum.redis, band: medium }
+  - { id: linux.enum.rdpvnc, band: low }
+  - { id: linux.enum.nosql, band: low }
+  - { id: linux.enum.legacy, band: low }
+  # ---- Linux ----
+  - { id: linux.recon.host-discovery, band: high }
+  - { id: linux.enum.nmap, band: core }
+  - { id: linux.enum.smb, band: core }
+  - { id: linux.enum.web, band: core }
+  - { id: linux.enum.ftp-ssh, band: medium }
+  - { id: linux.privesc.enum, band: core }
+  - { id: linux.privesc.sudo, band: core }
+  - { id: linux.privesc.suid, band: core }
+  - { id: linux.privesc.cron, band: high }
+  - { id: linux.privesc.kernel, band: medium }
+  - { id: linux.privesc.caps, band: high }
+  - { id: linux.privesc.path, band: high }
+  - { id: linux.privesc.passwd, band: high }
+  - { id: linux.privesc.nfs, band: high }
+  - { id: linux.privesc.docker, band: high }
+  - { id: linux.privesc.ldpreload, band: high }
+  - { id: linux.privesc.systemd, band: medium }
+  - { id: linux.privesc.wildcard, band: high }
+  - { id: linux.privesc.suidcustom, band: medium }
+  - { id: linux.privesc.creds, band: high }
+  - { id: linux.privesc.pwnkit, band: medium }
+  - { id: linux.privesc.sudocve, band: low }
+  # ---- Linux web (LX-3) + finishers ----
+  - { id: linux.web.lfi, band: core }
+  - { id: linux.web.upload, band: high }
+  - { id: linux.web.cmdinj, band: core }
+  - { id: linux.web.sqli, band: core }
+  - { id: linux.web.ssti, band: high }
+  - { id: linux.web.xxe, band: medium }
+  - { id: linux.web.deser, band: low }
+  - { id: linux.web.authbypass, band: high }
+  - { id: linux.recon.rustscan, band: high }
+  - { id: linux.shell.bind, band: medium }
+  - { id: linux.shell.socat, band: high }
+  - { id: linux.shell.pwncat, band: medium }
+  - { id: linux.shell.webshell, band: medium }
+  - { id: linux.enum.manualdeep, band: core }
+  - { id: linux.enum.pspy, band: high }
+  - { id: linux.post.transfer, band: high }
+  - { id: linux.post.loot, band: medium }
+  - { id: linux.post.pivot, band: high }
+  # ---- Windows ----
+  - { id: win.enum.system, band: core }
+  - { id: win.enum.winpeas, band: core }
+  - { id: win.privesc.services, band: core }
+  - { id: win.privesc.token, band: high }
+  - { id: win.privesc.creds, band: core }
+  - { id: win.enum.manual, band: core }
+  - { id: win.loot.creds, band: high }
+  - { id: win.loot.registry, band: medium }
+  - { id: win.loot.files, band: medium }
+  - { id: win.loot.dpapi, band: low }
+  - { id: win.privesc.aie, band: high }
+  - { id: win.privesc.privs, band: high }
+  - { id: win.privesc.dllhijack, band: medium }
+  - { id: win.privesc.schtask, band: medium }
+  - { id: win.privesc.uac, band: low }
+  - { id: win.privesc.kernel, band: medium }
+  - { id: win.shell.rev, band: high }
+  - { id: win.transfer, band: high }
+  - { id: win.lolbas, band: medium }
+  # ---- Active Directory ----
+  - { id: ad.enum.smb, band: core }
+  - { id: ad.enum.ldap, band: core }
+  - { id: ad.enum.kerbrute, band: high }
+  - { id: ad.enum.bloodhound, band: core }
+  - { id: ad.credaccess.asreproast, band: core }
+  - { id: ad.credaccess.kerberoast, band: core }
+  - { id: ad.credaccess.dcsync, band: core }
+  - { id: ad.credaccess.adcs, band: high }
+  - { id: ad.enum.ldap-anon, band: high }
+  - { id: ad.enum.rid, band: high }
+  - { id: ad.enum.dns, band: medium }
+  - { id: ad.enum.signing, band: high }
+  - { id: ad.enum.powerview, band: high }
+  - { id: ad.enum.ldd, band: medium }
+  - { id: ad.enum.gpp, band: high }
+  - { id: ad.enum.laps-gmsa, band: high }
+  - { id: ad.enum.trusts, band: medium }
+  - { id: ad.cred.spray, band: core }
+  - { id: ad.cred.responder, band: core }
+  - { id: ad.cred.relay, band: core }
+  - { id: ad.cred.coerce, band: high }
+  - { id: ad.cred.crackref, band: high }
+  - { id: ad.lateral.opth, band: core }
+  - { id: ad.lateral.ptt, band: core }
+  - { id: ad.lateral.exec-methods, band: high }
+  - { id: ad.lateral.secretsdump-local, band: core }
+  - { id: ad.lateral.credtheft, band: high }
+  - { id: ad.deleg.unconstrained, band: high }
+  - { id: ad.deleg.constrained, band: high }
+  - { id: ad.adcs.esc1, band: high }
+  - { id: ad.adcs.esc234, band: high }
+  - { id: ad.adcs.esc67, band: high }
+  - { id: ad.adcs.esc8, band: high }
+  - { id: ad.adcs.auth, band: high }
+  - { id: ad.adcs.esc91011, band: low }
+  - { id: ad.acl.writeowner, band: high }
+  - { id: ad.acl.writedacl, band: high }
+  - { id: ad.acl.gpo, band: medium }
+  - { id: ad.acl.adminsdholder, band: medium }
+  - { id: ad.acl.addmember, band: high }
+  - { id: ad.acl.forcechangepw, band: high }
+  - { id: ad.acl.shadowcred, band: high }
+  - { id: ad.acl.rbcd, band: high }
+  - { id: ad.dom.silver, band: medium }
+  - { id: ad.dom.ntds, band: core }
+  - { id: ad.dom.diamond, band: low }
+  - { id: ad.dom.persist, band: low }
+  - { id: ad.dom.goldengmsa, band: low }
+  - { id: ad.trust.sidhistory, band: medium }
+  - { id: ad.trust.interforest, band: low }
+  - { id: ad.concept.ntlm, band: high }
+  - { id: ad.concept.kerberos, band: high }
+  - { id: ad.concept.credforms, band: high }
+  - { id: ad.concept.pathcomp, band: high }
+  - { id: ad.lateral.psexec, band: core }
+  - { id: ad.lateral.wmiexec, band: core }
+  - { id: ad.lateral.evil-winrm, band: core }
+  - { id: ad.persist.golden, band: medium }
+  # ---- Cross-cutting ----
+  - { id: xcut.shells.listener, band: core }
+  - { id: xcut.shells.revshell, band: core }
+  - { id: xcut.shells.upgrade, band: high }
+  - { id: xcut.transfer.serve, band: core }
+  - { id: xcut.transfer.pull, band: core }
+  - { id: xcut.pivot.chisel, band: high }
+  - { id: xcut.pivot.ssh, band: medium }
+
+# ============================================================
+# depth-v4 — nodes re-authored to the §1 DEPTH RUBRIC (multi-tool +
+# per-credMode variants + exact flags + operator extras + cross-links).
+# The coverage gate resolves each id to an existing technique. Deepen a few
+# per tick (depth-before-breadth); demote thin ☑ nodes here as you re-audit.
+# ============================================================
+depthV4:
+  - { id: ad.enum.smb, band: core, note: 'SMB enum across netexec/smbmap/rpcclient/smbclient + signing/null-session/output extras' }
+  - { id: ad.credaccess.asreproast, band: core, note: 'AS-REP roast across impacket/netexec/Rubeus + hashcat 18200 + DONT_REQ_PREAUTH/OPSEC notes' }
+  - { id: ad.credaccess.kerberoast, band: core, note: 'Kerberoast across impacket/netexec/Rubeus + per-credMode (password/PtH/AES/ticket) + hashcat 13100 + relatedIds' }
+  - { id: win.privesc.privs, band: high, note: 'Se* abuse: SeBackup hive-dump + SeImpersonate potato chain (PrintSpoofer/GodPotato/JuicyPotatoNG) + whoami /priv enum + relatedIds' }
+  - { id: xcut.shells.upgrade, band: high, note: 'PTY upgrade across python3 pty.spawn / script / stty raw / socat + relatedIds' }
+  - { id: ad.enum.bloodhound, band: core, note: 'Collectors across bloodhound.py / SharpHound / netexec --bloodhound + relatedIds' }
+
+# ============================================================
+# v2 — ARSENAL / DETERMINISTIC ENGINES (abstract dataset ids; no machine names).
+# Consumed by the v2 gates (tool-provenance / advisor-coverage / intent-resolves /
+# decision-reachability / nmap-route-coverage), NOT by the legacy gateCoverage.
+# ============================================================
+v2:
+  arsenal: [tool.rubeus, tool.powerview, tool.powerup, tool.printspoofer, tool.godpotato, tool.certipy, tool.netexec, tool.mimikatz, tool.nishang, tool.impacket]
+  signals: [sig.win.seimpersonate, sig.win.sebackup, sig.win.sedebug, sig.win.seloaddriver, sig.win.semanagevolume, sig.win.backupoperators, sig.win.serveroperators, sig.linux.sudo_nopasswd, sig.linux.cap_setuid, sig.linux.docker]
+  decisions: [dec.win.tokenpriv, dec.linux.privesc, dec.ad.nocreds-to-da]
+  cve: [cve.proftpd.135.modcopy, cve.vsftpd.234.backdoor, cve.apache.2449.traversal, cve.pkexec.pwnkit, cve.bash.shellshock]
+nmap-routes:   # gate fails if a catalog port has no route whose techniqueIds resolve
+  - { id: nmap.route.ftp,      port: 21,   band: high }
+  - { id: nmap.route.ssh,      port: 22,   band: high }
+  - { id: nmap.route.smb,      port: 445,  band: core }
+  - { id: nmap.route.ldap,     port: 389,  band: core }
+  - { id: nmap.route.kerberos, port: 88,   band: core }
+  - { id: nmap.route.winrm,    port: 5985, band: high }
+  - { id: nmap.route.rdp,      port: 3389, band: medium }
+  - { id: nmap.route.mssql,    port: 1433, band: high }
+  - { id: nmap.route.web,      port: 80,   band: high }
+
+# ============================================================
+# v3 — OSCE3 packs (consumed by gate-pack-coverage; pass-on-empty). Ids are added
+# in lockstep with the authored content/<pack>/**.yaml, per pack.
+# ============================================================
+osce3:
+  oswe:
+    - { id: oswe.method.tooling, band: high }
+    - { id: oswe.method.sourcereview, band: core }
+    - { id: oswe.xss.stored, band: high }
+    - { id: oswe.xss.dom, band: medium }
+    - { id: oswe.sqli.blind, band: core }
+    - { id: oswe.deser.dotnet, band: core }
+    - { id: oswe.upload.bypass, band: high }
+    - { id: oswe.pgsql.udfrevshell, band: high }
+    - { id: oswe.ssti, band: high }
+    - { id: oswe.xxe, band: high }
+    - { id: oswe.php.typejuggle, band: medium }
+    - { id: oswe.php.magichash, band: medium }
+    - { id: oswe.pgsql.udf, band: high }
+    - { id: oswe.pgsql.largeobject, band: medium }
+    - { id: oswe.bypass.regex, band: medium }
+    - { id: oswe.session.hijack, band: high }
+    - { id: oswe.exfil.data, band: high }
+    - { id: oswe.rce.chain, band: core }
+    - { id: oswe.rce.dbfunc, band: high }
+    - { id: oswe.bypass.charset, band: medium }
+    - { id: oswe.token.weakrandom, band: medium }
+    - { id: oswe.cmdinj.websocket, band: medium }
+  osep:
+    - { id: osep.theory.os, band: medium }
+    - { id: osep.clientside.office, band: high }
+    - { id: osep.clientside.jscript, band: high }
+    - { id: osep.inject.process, band: high }
+    - { id: osep.evasion.intro, band: high }
+    - { id: osep.evasion.applocker, band: high }
+    - { id: osep.evasion.advanced, band: high }
+    - { id: osep.evasion.netfilter, band: medium }
+    - { id: osep.linux.post, band: medium }
+    - { id: osep.win.creds, band: high }
+    - { id: osep.win.lateral, band: core }
+    - { id: osep.mssql.attacks, band: core }
+    - { id: osep.kiosk.breakout, band: low }
+    - { id: osep.linux.lateral, band: medium }
+    - { id: osep.ad.exploit, band: core }
+    - { id: osep.method.combine, band: high }
+  osed:
+    - { id: osed.windbg, band: high }
+    - { id: osed.stack.bof, band: core }
+    - { id: osed.seh, band: core }
+    - { id: osed.ida, band: medium }
+    - { id: osed.egghunter, band: high }
+    - { id: osed.shellcode, band: high }
+    - { id: osed.re.bugs, band: medium }
+    - { id: osed.depaslr, band: core }
+    - { id: osed.formatstring, band: medium }
+    - { id: osed.rop, band: core }
+  osee:
+    - { id: osee.usermode.mitigations, band: high }
+    - { id: osee.heap.escape, band: core }
+    - { id: osee.wdeg.disarm, band: medium }
+    - { id: osee.kernel.re, band: high }
+    - { id: osee.kernel.mitigations, band: core }
+decisions-v3: []
+nmap-routes-v3: []

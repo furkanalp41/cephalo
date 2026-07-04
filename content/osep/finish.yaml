@@ -1,0 +1,94 @@
+sections:
+  - id: osep.p2
+    title: 'OSEP — AD bridge & combining'
+    os: ad
+    order: 402
+    techniques: [osep.kiosk.breakout, osep.linux.lateral, osep.ad.exploit, osep.method.combine]
+    packs: [osep]
+techniques:
+  - id: osep.kiosk.breakout
+    title: 'Kiosk breakouts'
+    os: [windows]
+    phase: initial-access
+    summary: 'Dialog / shortcut / URI escapes out of a locked-down shell — concept + process enum.'
+    commands: [osep.kiosk.breakout.proc]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.linux.lateral
+    title: 'Linux lateral movement'
+    os: [linux]
+    phase: lateral-movement
+    summary: 'SSH key / agent-hijack pivoting; reuses the OSCP pivot tree.'
+    commands: [osep.linux.lateral.ssh]
+    relatedIds: [xcut.pivot.ssh, linux.post.pivot]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.ad.exploit
+    title: 'Active Directory exploitation'
+    os: [ad]
+    phase: lateral-movement
+    summary: 'Bridge into the full OSCP AD tree — collect a graph, then chain Kerberoast / ADCS / DCSync / delegation.'
+    commands: [osep.ad.exploit.collect]
+    relatedIds: [ad.credaccess.kerberoast, ad.adcs.esc1, ad.credaccess.dcsync, ad.deleg.unconstrained]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.method.combine
+    title: 'Combining the pieces'
+    os: [ad]
+    phase: exploitation
+    summary: 'Full chain: client-side delivery → evasion → credential theft → lateral movement → AD to DA.'
+    commands: [osep.method.combine.chain]
+    relatedIds:
+      [osep.clientside.office, osep.evasion.intro, osep.win.creds, osep.win.lateral, osep.ad.exploit]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+commands:
+  - id: osep.kiosk.breakout.proc
+    title: 'Enumerate the kiosk shell process'
+    template: 'Get-Process explorer'
+    shell: powershell
+    os: [windows]
+    tags: [osep]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.linux.lateral.ssh
+    title: 'SSH key pivot'
+    template: 'ssh -o StrictHostKeyChecking=no -i {{PAYLOAD}} {{USER}}@{{RHOST}}'
+    shell: bash
+    os: [linux]
+    tags: [osep]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.ad.exploit.collect
+    title: 'BloodHound collection (bridge)'
+    template: 'bloodhound-python -d {{DOMAIN}} -u {{USER}} -p {{PASS}} -c All -ns {{DC_IP}}'
+    shell: bash
+    os: [ad]
+    tool: bloodhound
+    tags: [osep]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten, ref.bloodhoundpy]
+    packs: [osep]
+  - id: osep.method.combine.chain
+    title: 'Full-chain summary'
+    template: 'echo "client-side -> evasion -> creds -> lateral -> AD -> DA"'
+    shell: bash
+    os: [ad]
+    tags: [osep]
+    danger: info
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]

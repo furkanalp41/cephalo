@@ -1,0 +1,36 @@
+/* styles/theme.windows.css — REALM: windows "Azure Trench" (deep slate-blue). */
+[data-os='windows'] {
+  --cph-color-bg: #0a0f1a;
+  --cph-color-surface: #121a2b;
+  --cph-color-surface-raised: #1b2740;
+  --cph-color-border: #2e3f5e;
+  --cph-color-text: #e9eef8;
+  --cph-color-text-muted: #9fb0cc;
+  --cph-color-primary: #3a9bff;
+  --cph-color-primary-contrast: #04101f;
+  --cph-color-accent: #51e0f2;
+  --cph-color-focus: #7dc0ff;
+  --cph-color-danger: #ff6b61;
+  --cph-color-success: #46c9a0;
+
+  --cph-octo-tint: #1e3a66;
+  --cph-octo-thinking: #3a9bff;
+  --cph-octo-glow: 0 0 32px rgba(58, 155, 255, 0.4);
+
+  --cph-elev-3: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(58, 155, 255, 0.1);
+  --cph-elev-4: 0 14px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(58, 155, 255, 0.14);
+
+  /* v2 arsenal re-tint (windows) — DESIGN-PROMPT-v2 */
+  --cph-ask-bg: #070c16;
+  --cph-ask-surface: #101826;
+  --cph-ask-input-bg: #0c1320;
+  --cph-ask-octo-halo: radial-gradient(60% 60% at 50% 42%, rgba(58, 155, 255, 0.22), rgba(58, 155, 255, 0) 70%);
+  --cph-ask-result-accent: #3a9bff;
+  --cph-ask-explain-fg: #9fb6d6;
+  --cph-intent-pin-accent: #51e0f2;
+  --cph-octo-large-glow: 0 0 120px 12px rgba(58, 155, 255, 0.28), 0 0 56px rgba(58, 155, 255, 0.2);
+  --cph-advisor-rank-1: #3a9bff;
+  --cph-nmap-confirm-bg: rgba(58, 155, 255, 0.16);
+}

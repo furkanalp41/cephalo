@@ -1,0 +1,153 @@
+# Cephalo content — AD enumeration finishers (AD-2 setup, AD-1 SMTP, AD-13 tooling).
+# Authorized testing only.
+sections:
+  - id: ad.p10.enum3
+    title: AD Enumeration (setup & tooling)
+    os: ad
+    phase: enumeration
+    order: 106
+    description: neo4j/BloodHound setup, enum4linux-ng, SMTP user-leak, Whisker & ADRecon.
+    techniques: [ad.enum.bhsetup, ad.enum.e4lng, ad.enum.smtp, ad.tool.whisker, ad.tool.adrecon]
+    packs: [oscp]
+
+techniques:
+  - id: ad.enum.bhsetup
+    title: neo4j + BloodHound setup (legacy vs CE)
+    os: [ad]
+    phase: enumeration
+    summary: Stand up neo4j + BloodHound and import collected data; mind the schema divergence.
+    body: |
+      Run neo4j, open BloodHound, and drag in the SharpHound/bloodhound-python zip.
+      BloodHound CE and the legacy GUI differ in schema, node/edge names and some
+      cypher field names — queries written for one may not run unchanged on the other.
+      Treat cross-version cypher as `[UNVERIFIED]` until confirmed in your build.
+    commands: [ad.enum.bhsetup.neo4j]
+    tags: [bloodhound, enumeration]
+    archetypeBand: high
+    references: [ref.bloodhound]
+    confidence: unverified
+    packs: [oscp]
+    relatedIds: [ad.enum.bloodhound]
+
+  - id: ad.enum.e4lng
+    title: enum4linux-ng
+    os: [ad]
+    phase: enumeration
+    summary: One-shot SMB/RPC/LDAP enumeration (users, shares, policy, groups).
+    commands: [ad.enum.e4lng.run]
+    tags: [smb, enumeration]
+    ports: [139]
+    services: [smb]
+    archetypeBand: high
+    references: [ref.enum4linux]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.smtp
+    title: SMTP user-leak (feeds user lists)
+    os: [ad, linux]
+    phase: enumeration
+    summary: Enumerate valid users via SMTP VRFY/EXPN/RCPT to seed spraying/roasting.
+    body: |
+      A talkative SMTP server confirms which usernames exist (VRFY/EXPN/RCPT TO),
+      seeding the user list you spray or roast. Cross-cuts Linux port 25.
+    commands: [ad.enum.smtp.userenum]
+    tags: [enumeration]
+    ports: [25, 465, 587]
+    services: [smtp]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.tool.whisker
+    title: Shadow Credentials (pyWhisker)
+    os: [ad]
+    phase: credential-access
+    summary: Alternative AddKeyCredentialLink abuse via pyWhisker (→ PKINIT).
+    body: |
+      pyWhisker is the cross-platform alternative to certipy for writing
+      msDS-KeyCredentialLink; pair it with PKINIT to recover the target's NT hash.
+    commands: [ad.tool.whisker.add]
+    tags: [acl-abuse, credential-access]
+    archetypeBand: medium
+    references: [ref.whisker]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.acl.shadowcred]
+
+  - id: ad.tool.adrecon
+    title: ADRecon
+    os: [ad]
+    phase: enumeration
+    summary: Generate an offline report of the whole domain (users/groups/GPO/ACL/trusts).
+    commands: [ad.tool.adrecon.run]
+    tags: [ad, enumeration]
+    archetypeBand: low
+    references: [ref.adrecon]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.enum.bhsetup.neo4j
+    title: Run neo4j (docker)
+    template: "docker run -d -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/bloodhound neo4j:latest"
+    tool: neo4j
+    description: Start neo4j for BloodHound; browse to the GUI and import the zip.
+    os: [ad]
+    phase: enumeration
+    tags: [bloodhound]
+    confidence: unverified
+    references: [ref.bloodhound]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.e4lng.run
+    title: enum4linux-ng sweep
+    template: "enum4linux-ng -A {{DC_IP}}"
+    tool: enum4linux-ng
+    description: All-in-one SMB/RPC/LDAP enumeration against the DC.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, enumeration]
+    confidence: verified
+    references: [ref.enum4linux]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.smtp.userenum
+    title: SMTP user enumeration
+    template: "smtp-user-enum -M VRFY -U users.txt -t {{RHOST}}"
+    tool: smtp-user-enum
+    description: Confirm valid usernames over SMTP VRFY.
+    os: [ad, linux]
+    phase: enumeration
+    tags: [enumeration]
+    notes:
+      - "Try -M RCPT or -M EXPN if VRFY is disabled."
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: ad.tool.whisker.add
+    title: pyWhisker add key credential
+    template: "pywhisker -d {{DOMAIN}} -u '{{USER}}' -p '{{PASS}}' --target '{{TARGET_USER}}' --action add --dc-ip {{DC_IP}}"
+    tool: pyWhisker
+    description: Write a Shadow Credential to the target, then PKINIT for its hash.
+    os: [ad]
+    phase: credential-access
+    tags: [acl-abuse]
+    confidence: verified
+    references: [ref.whisker]
+    danger: high
+    packs: [oscp]
+  - id: ad.tool.adrecon.run
+    title: ADRecon report
+    template: "ADRecon.ps1 -DomainController {{DC_IP}} -Credential (Get-Credential)"
+    shell: powershell
+    description: Produce a full offline HTML/Excel report of the domain.
+    os: [ad]
+    phase: enumeration
+    tags: [ad]
+    confidence: verified
+    references: [ref.adrecon]
+    danger: low
+    packs: [oscp]

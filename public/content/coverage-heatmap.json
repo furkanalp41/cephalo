@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-07-04T14:34:13.688Z",
+  "perOsPhase": {
+    "linux": {
+      "recon": 2,
+      "enumeration": 13,
+      "web": 24,
+      "initial-access": 0,
+      "exploitation": 5,
+      "foothold": 7,
+      "privilege-escalation": 19,
+      "lateral-movement": 1,
+      "credential-access": 0,
+      "persistence": 0,
+      "post-exploitation": 5,
+      "pivoting": 3,
+      "exfiltration": 1,
+      "cleanup": 0
+    },
+    "windows": {
+      "recon": 0,
+      "enumeration": 2,
+      "web": 1,
+      "initial-access": 3,
+      "exploitation": 15,
+      "foothold": 4,
+      "privilege-escalation": 9,
+      "lateral-movement": 0,
+      "credential-access": 1,
+      "persistence": 0,
+      "post-exploitation": 12,
+      "pivoting": 2,
+      "exfiltration": 0,
+      "cleanup": 0
+    },
+    "ad": {
+      "recon": 0,
+      "enumeration": 17,
+      "web": 0,
+      "initial-access": 0,
+      "exploitation": 2,
+      "foothold": 2,
+      "privilege-escalation": 0,
+      "lateral-movement": 18,
+      "credential-access": 21,
+      "persistence": 6,
+      "post-exploitation": 3,
+      "pivoting": 1,
+      "exfiltration": 0,
+      "cleanup": 0
+    }
+  },
+  "totals": {
+    "techniques": 191,
+    "commands": 264,
+    "requiredForOscpReadiness": 37
+  },
+  "orphanTechniques": [
+    "win.loot.dpapi",
+    "linux.web.deser",
+    "ad.adcs.esc8",
+    "ad.adcs.esc91011",
+    "ad.concept.ntlm",
+    "ad.concept.kerberos",
+    "ad.concept.credforms",
+    "ad.concept.pathcomp",
+    "ad.dom.goldengmsa"
+  ],
+  "requiredUnresolved": []
+}

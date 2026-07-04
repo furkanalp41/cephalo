@@ -1,0 +1,199 @@
+# canon-map.yaml — syllabus/cheatsheet framing -> Cephalo node id (superset audit).
+# Each `source` syllabus item maps to >=1 authored technique node. Gate 13 (coverage)
+# fails on a dangling node id or a listed item with no mapping. Syllabus framing
+# (PEN-200 Section-18, viperone, HackTricks structure) is a CITATION source only;
+# there are no machine names anywhere here.
+schemaVersion: 1
+mappings:
+  - { source: 'Enumeration: SMB/RPC', node: ad.enum.smb }
+  - { source: 'Enumeration: LDAP', node: ad.enum.ldap }
+  - { source: 'Enumeration: Kerberos user enum', node: ad.enum.kerbrute }
+  - { source: 'NTLM / Pass-the-Hash', node: ad.lateral.psexec }
+  - { source: 'Kerberos auth', node: ad.enum.kerbrute }
+  - { source: 'Pass-the-Ticket (psexec -k)', node: ad.lateral.psexec }
+  - { source: 'Overpass-the-Hash / Pass-the-Key', node: ad.lateral.opth }
+  - { source: 'Pass-the-Ticket', node: ad.lateral.ptt }
+  - { source: 'DCOM lateral movement', node: ad.lateral.exec-methods }
+  - { source: 'smbexec/atexec/dcomexec/winrs/RDP-PtH', node: ad.lateral.exec-methods }
+  - { source: 'Local secrets dump (SAM/LSA/cached)', node: ad.lateral.secretsdump-local }
+  - { source: 'LSASS / DPAPI credential theft', node: ad.lateral.credtheft }
+  - { source: 'Unconstrained delegation', node: ad.deleg.unconstrained }
+  - { source: 'Constrained delegation (S4U)', node: ad.deleg.constrained }
+  - { source: 'Kerberoasting', node: ad.credaccess.kerberoast }
+  - { source: 'AS-REP Roasting', node: ad.credaccess.asreproast }
+  - { source: 'Golden Ticket', node: ad.persist.golden }
+  - { source: 'Silver Ticket', node: ad.dom.silver }
+  - { source: 'Diamond / Sapphire ticket', node: ad.dom.diamond }
+  - { source: 'NTDS.dit extraction', node: ad.dom.ntds }
+  - { source: 'Skeleton Key / DSRM / SSP persistence', node: ad.dom.persist }
+  - { source: 'Golden gMSA', node: ad.dom.goldengmsa }
+  - { source: 'SID history abuse (child→parent)', node: ad.trust.sidhistory }
+  - { source: 'Inter-forest trust key abuse', node: ad.trust.interforest }
+  - { source: 'NTLM auth flow (concept)', node: ad.concept.ntlm }
+  - { source: 'Kerberos flow (concept)', node: ad.concept.kerberos }
+  - { source: 'Credential forms map', node: ad.concept.credforms }
+  - { source: 'Path composition → DA', node: ad.concept.pathcomp }
+  - { source: 'DCSync', node: ad.credaccess.dcsync }
+  - { source: 'ACL Abuse (GenericAll/Write, AddMember)', node: ad.acl.addmember }
+  - { source: 'ForceChangePassword', node: ad.acl.forcechangepw }
+  - { source: 'Shadow Credentials', node: ad.acl.shadowcred }
+  - { source: 'RBCD (Resource-Based Constrained Delegation)', node: ad.acl.rbcd }
+  - { source: 'ADCS ESC1', node: ad.adcs.esc1 }
+  - { source: 'ADCS ESC2/ESC3/ESC4', node: ad.adcs.esc234 }
+  - { source: 'ADCS ESC6/ESC7', node: ad.adcs.esc67 }
+  - { source: 'ADCS ESC8 (web enroll relay)', node: ad.adcs.esc8 }
+  - { source: 'ADCS cert auth (PKINIT/UnPAC)', node: ad.adcs.auth }
+  - { source: 'ADCS ESC9/ESC10/ESC11', node: ad.adcs.esc91011 }
+  - { source: 'WriteOwner', node: ad.acl.writeowner }
+  - { source: 'WriteDACL', node: ad.acl.writedacl }
+  - { source: 'GPO abuse', node: ad.acl.gpo }
+  - { source: 'AdminSDHolder persistence', node: ad.acl.adminsdholder }
+  - { source: 'Tooling: Impacket', node: ad.lateral.psexec }
+  - { source: 'Tooling: Rubeus', node: ad.credaccess.kerberoast }
+  - { source: 'Tooling: Kerbrute', node: ad.enum.kerbrute }
+  - { source: 'Tooling: CrackMapExec / netexec', node: ad.enum.smb }
+  - { source: 'Tooling: BloodHound', node: ad.enum.bloodhound }
+  - { source: 'LDAP anonymous bind enumeration', node: ad.enum.ldap-anon }
+  - { source: 'RID cycling / SID brute', node: ad.enum.rid }
+  - { source: 'AD DNS enumeration (SRV)', node: ad.enum.dns }
+  - { source: 'SMB signing check', node: ad.enum.signing }
+  - { source: 'PowerView enumeration', node: ad.enum.powerview }
+  - { source: 'ldapdomaindump', node: ad.enum.ldd }
+  - { source: 'GPP cpassword / SYSVOL', node: ad.enum.gpp }
+  - { source: 'LAPS / gMSA read', node: ad.enum.laps-gmsa }
+  - { source: 'Trust enumeration', node: ad.enum.trusts }
+  - { source: 'Password spraying', node: ad.cred.spray }
+  - { source: 'LLMNR/NBT-NS poisoning (Responder)', node: ad.cred.responder }
+  - { source: 'NTLM relay (ntlmrelayx, ESC8)', node: ad.cred.relay }
+  - { source: 'Authentication coercion (PetitPotam/PrinterBug)', node: ad.cred.coerce }
+  - { source: 'Hash cracking modes', node: ad.cred.crackref }
+  - { source: 'Linux PrivEsc: sudo', node: linux.privesc.sudo }
+  - { source: 'Linux PrivEsc: SUID', node: linux.privesc.suid }
+  - { source: 'Linux PrivEsc: cron', node: linux.privesc.cron }
+  - { source: 'Linux PrivEsc: kernel', node: linux.privesc.kernel }
+  - { source: 'Linux PrivEsc: capabilities', node: linux.privesc.caps }
+  - { source: 'Linux PrivEsc: PATH hijack', node: linux.privesc.path }
+  - { source: 'Linux PrivEsc: writable passwd/shadow', node: linux.privesc.passwd }
+  - { source: 'Linux PrivEsc: NFS no_root_squash', node: linux.privesc.nfs }
+  - { source: 'Linux PrivEsc: docker/lxd group', node: linux.privesc.docker }
+  - { source: 'Linux PrivEsc: LD_PRELOAD', node: linux.privesc.ldpreload }
+  - { source: 'Linux PrivEsc: writable systemd', node: linux.privesc.systemd }
+  - { source: 'Linux PrivEsc: cron wildcard injection', node: linux.privesc.wildcard }
+  - { source: 'Linux PrivEsc: custom SUID analysis', node: linux.privesc.suidcustom }
+  - { source: 'Linux PrivEsc: password reuse', node: linux.privesc.creds }
+  - { source: 'Linux PrivEsc: pkexec PwnKit', node: linux.privesc.pwnkit }
+  - { source: 'Linux PrivEsc: sudo Baron Samedit', node: linux.privesc.sudocve }
+  - { source: 'Windows PrivEsc: services', node: win.privesc.services }
+  - { source: 'Windows PrivEsc: token (SeImpersonate)', node: win.privesc.token }
+  - { source: 'Windows PrivEsc: credential harvesting', node: win.privesc.creds }
+  - { source: 'Windows manual enumeration', node: win.enum.manual }
+  - { source: 'Windows: stored creds (cmdkey/runas)', node: win.loot.creds }
+  - { source: 'Windows: registry secrets (autologon/PuTTY)', node: win.loot.registry }
+  - { source: 'Windows: sensitive files (unattend/web.config)', node: win.loot.files }
+  - { source: 'Windows: DPAPI/browser creds', node: win.loot.dpapi }
+  - { source: 'Windows: AlwaysInstallElevated', node: win.privesc.aie }
+  - { source: 'Windows: privilege abuse (Se*)', node: win.privesc.privs }
+  - { source: 'Windows: DLL hijacking', node: win.privesc.dllhijack }
+  - { source: 'Windows: scheduled-task abuse', node: win.privesc.schtask }
+  - { source: 'Windows: UAC bypass (methodology)', node: win.privesc.uac }
+  - { source: 'Windows: kernel/PrintNightmare LPE', node: win.privesc.kernel }
+  - { source: 'Windows: reverse shells', node: win.shell.rev }
+  - { source: 'Windows: file transfer', node: win.transfer }
+  - { source: 'Windows: AMSI/LOLBAS reference', node: win.lolbas }
+  - { source: 'neo4j + BloodHound setup (CE vs legacy)', node: ad.enum.bhsetup }
+  - { source: 'enum4linux-ng', node: ad.enum.e4lng }
+  - { source: 'SMTP user-leak', node: ad.enum.smtp }
+  - { source: 'Shadow Credentials (pyWhisker)', node: ad.tool.whisker }
+  - { source: 'ADRecon', node: ad.tool.adrecon }
+  - { source: 'Web enumeration', node: linux.enum.web }
+  - { source: 'Service: DNS (53)', node: linux.enum.dns }
+  - { source: 'Service: POP3/IMAP', node: linux.enum.mail }
+  - { source: 'Service: NFS (111/2049)', node: linux.enum.nfs }
+  - { source: 'Service: SNMP (161)', node: linux.enum.snmp }
+  - { source: 'Service: MSSQL/MySQL/Postgres', node: linux.enum.db }
+  - { source: 'Service: Redis (6379)', node: linux.enum.redis }
+  - { source: 'Service: RDP/VNC', node: linux.enum.rdpvnc }
+  - { source: 'Service: Elasticsearch/MongoDB', node: linux.enum.nosql }
+  - { source: 'Service: Telnet/Finger/rsync', node: linux.enum.legacy }
+  - { source: 'Web: LFI/RFI', node: linux.web.lfi }
+  - { source: 'Web: file-upload bypass', node: linux.web.upload }
+  - { source: 'Web: command injection', node: linux.web.cmdinj }
+  - { source: 'Web: SQL injection (sqlmap)', node: linux.web.sqli }
+  - { source: 'Web: SSTI', node: linux.web.ssti }
+  - { source: 'Web: XXE', node: linux.web.xxe }
+  - { source: 'Web: deserialization', node: linux.web.deser }
+  - { source: 'Web: auth bypass / IDOR / default creds', node: linux.web.authbypass }
+  - { source: 'Fast scanning (rustscan/masscan)', node: linux.recon.rustscan }
+  - { source: 'Bind shell', node: linux.shell.bind }
+  - { source: 'socat full-PTY shell', node: linux.shell.socat }
+  - { source: 'pwncat', node: linux.shell.pwncat }
+  - { source: 'Web shell', node: linux.shell.webshell }
+  - { source: 'Manual local enumeration', node: linux.enum.manualdeep }
+  - { source: 'pspy process spy', node: linux.enum.pspy }
+  - { source: 'Transfer: base64/nc/dev-tcp', node: linux.post.transfer }
+  - { source: 'Loot collection', node: linux.post.loot }
+  - { source: 'Pivot: ligolo-ng/proxychains', node: linux.post.pivot }
+  - { source: 'Reverse shells (RevShells loop)', node: xcut.shells.revshell }
+  - { source: 'File transfer', node: xcut.transfer.serve }
+  - { source: 'Pivoting / tunneling', node: xcut.pivot.chisel }
+  # ---- depth-v4 (rubric-deepened nodes) ----
+  - { source: 'Depth: SMB enum across netexec/smbmap/rpcclient/smbclient', node: ad.enum.smb }
+  - { source: 'Depth: AS-REP roast across impacket/netexec/Rubeus', node: ad.credaccess.asreproast }
+  - { source: 'Depth: Kerberoast per-credMode (password/PtH/AES/ticket) + multi-tool', node: ad.credaccess.kerberoast }
+  - { source: 'Depth: SeImpersonate potato chain (PrintSpoofer/GodPotato/JuicyPotatoNG)', node: win.privesc.privs }
+  - { source: 'Depth: PTY upgrade (python/script/stty/socat)', node: xcut.shells.upgrade }
+  - { source: 'Depth: BloodHound collectors (bloodhound.py/SharpHound/netexec)', node: ad.enum.bloodhound }
+  # ---- OSCE3 packs ----
+  - { source: 'OSCE3: web tooling & methodology', node: oswe.method.tooling }
+  - { source: 'OSCE3: source-code analysis (white-box)', node: oswe.method.sourcereview }
+  - { source: 'OSCE3: persistent XSS', node: oswe.xss.stored }
+  - { source: 'OSCE3: DOM-based XSS', node: oswe.xss.dom }
+  - { source: 'OSCE3: blind SQL injection', node: oswe.sqli.blind }
+  - { source: 'OSCE3: .NET deserialization', node: oswe.deser.dotnet }
+  - { source: 'OSCE3: file-upload bypass', node: oswe.upload.bypass }
+  - { source: 'OSCE3: UDF reverse shells', node: oswe.pgsql.udfrevshell }
+  - { source: 'OSCE3: SSTI', node: oswe.ssti }
+  - { source: 'OSCE3: XXE', node: oswe.xxe }
+  - { source: 'OSCE3: PHP type juggling', node: oswe.php.typejuggle }
+  - { source: 'OSCE3: magic hashes', node: oswe.php.magichash }
+  - { source: 'OSCE3: PostgreSQL extensions & UDFs', node: oswe.pgsql.udf }
+  - { source: 'OSCE3: PostgreSQL large objects', node: oswe.pgsql.largeobject }
+  - { source: 'OSCE3: REGEX-restriction bypass', node: oswe.bypass.regex }
+  - { source: 'OSCE3: session hijacking', node: oswe.session.hijack }
+  - { source: 'OSCE3: data exfiltration', node: oswe.exfil.data }
+  - { source: 'OSCE3: RCE (chained)', node: oswe.rce.chain }
+  - { source: 'OSCE3: RCE via database functions', node: oswe.rce.dbfunc }
+  - { source: 'OSCE3: character-restriction bypass', node: oswe.bypass.charset }
+  - { source: 'OSCE3: weak random token generation', node: oswe.token.weakrandom }
+  - { source: 'OSCE3: OS command injection via WebSockets', node: oswe.cmdinj.websocket }
+  - { source: 'OSCE3: OS & programming theory', node: osep.theory.os }
+  - { source: 'OSCE3: client-side exec with Office', node: osep.clientside.office }
+  - { source: 'OSCE3: client-side exec with JScript', node: osep.clientside.jscript }
+  - { source: 'OSCE3: process injection & migration', node: osep.inject.process }
+  - { source: 'OSCE3: intro to AV evasion', node: osep.evasion.intro }
+  - { source: 'OSCE3: application whitelisting bypass', node: osep.evasion.applocker }
+  - { source: 'OSCE3: advanced AV evasion', node: osep.evasion.advanced }
+  - { source: 'OSCE3: bypassing network filters', node: osep.evasion.netfilter }
+  - { source: 'OSCE3: Linux post-exploitation', node: osep.linux.post }
+  - { source: 'OSCE3: Windows credentials', node: osep.win.creds }
+  - { source: 'OSCE3: Windows lateral movement', node: osep.win.lateral }
+  - { source: 'OSCE3: Microsoft SQL attacks', node: osep.mssql.attacks }
+  - { source: 'OSCE3: kiosk breakouts', node: osep.kiosk.breakout }
+  - { source: 'OSCE3: Linux lateral movement', node: osep.linux.lateral }
+  - { source: 'OSCE3: Active Directory exploitation', node: osep.ad.exploit }
+  - { source: 'OSCE3: combining the pieces', node: osep.method.combine }
+  - { source: 'OSCE3: WinDbg + mona workflow', node: osed.windbg }
+  - { source: 'OSCE3: stack buffer overflow', node: osed.stack.bof }
+  - { source: 'OSCE3: SEH-based overflow', node: osed.seh }
+  - { source: 'OSCE3: static/dynamic triage', node: osed.ida }
+  - { source: 'OSCE3: egghunters', node: osed.egghunter }
+  - { source: 'OSCE3: custom shellcode', node: osed.shellcode }
+  - { source: 'OSCE3: finding the bug', node: osed.re.bugs }
+  - { source: 'OSCE3: DEP/ASLR bypass', node: osed.depaslr }
+  - { source: 'OSCE3: format-string bugs', node: osed.formatstring }
+  - { source: 'OSCE3: ROP chains', node: osed.rop }
+  - { source: 'OSCE3: user-mode mitigations', node: osee.usermode.mitigations }
+  - { source: 'OSCE3: heap manipulation & escapes', node: osee.heap.escape }
+  - { source: 'OSCE3: disarming WDEG', node: osee.wdeg.disarm }
+  - { source: 'OSCE3: kernel reversing', node: osee.kernel.re }
+  - { source: 'OSCE3: kernel mitigations', node: osee.kernel.mitigations }

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "salt": "cephalo-denylist-v1-7f3a",
+  "note": "Salted SHA-256 hashes ONLY — never plaintext machine names. Generated LOCALLY by scripts/build-denylist-manifest.ts from the gitignored denylist.local.json. Gate 10 (scripts/gate-denylist.ts) normalizes each candidate token (lowercase, strip non-alphanumerics), salts + SHA-256 hashes it, and compares against denyHashes across tracked files, filenames and commit history. pdfSha256 holds the must-not-be-tracked Trophy-Room artifact hash(es). Empty sets = no machine names exist anywhere in this repo (by construction: the data model has no machine-identity field).",
+  "denyHashes": [],
+  "pdfSha256": []
+}

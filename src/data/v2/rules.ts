@@ -1,0 +1,21 @@
+// src/data/v2/rules.ts — F3 PrivilegeRule dataset (v2). A rule fires iff ALL whenSignals
+// are present AND its buildGate brackets the parsed build; sorted rank then id. Each
+// recommendsTechniqueId / toolBinaryId / signal FK reuses an EXISTING OSCP technique +
+// v2 dataset id (no duplication). [UNVERIFIED] rules (build-gated/CLSID) carry refs.
+// Validated by schema.v2.ts (PrivilegeRuleSchema).
+import type { PrivilegeRule } from '@/types/advisor';
+
+export const RULES: PrivilegeRule[] = [
+  { id: 'rule.win.seimpersonate.printspoofer', os: 'windows', whenSignals: ['sig.win.seimpersonate'], buildGate: { minBuild: 17763 }, recommendsTechniqueId: 'win.privesc.token', toolBinaryId: 'tool.printspoofer', rank: 1, rationale: 'Held SeImpersonate on a recent build → PrintSpoofer to SYSTEM.', confidence: 'verified' },
+  { id: 'rule.win.seimpersonate.godpotato', os: 'windows', whenSignals: ['sig.win.seimpersonate'], buildGate: { minBuild: 17763 }, recommendsTechniqueId: 'win.privesc.token', toolBinaryId: 'tool.godpotato', rank: 2, rationale: 'Held SeImpersonate → GodPotato as a PrintSpoofer alternative.', confidence: 'verified' },
+  { id: 'rule.win.seimpersonate.juicypotato', os: 'windows', whenSignals: ['sig.win.seimpersonate'], buildGate: { maxBuild: 17134 }, recommendsTechniqueId: 'win.privesc.token', toolBinaryId: 'tool.juicypotato', rank: 3, rationale: 'Older build → JuicyPotato (DCOM/CLSID path).', unverifiedReason: 'CLSID availability is build- and target-specific and not machine-verifiable.', confidence: 'unverified', references: ['ref.juicypotato'] },
+  { id: 'rule.win.sebackup.hive', os: 'windows', whenSignals: ['sig.win.sebackup'], recommendsTechniqueId: 'win.privesc.privs', toolBinaryId: 'tool.impacket', rank: 1, rationale: 'SeBackup → read SAM/SYSTEM hives → offline secretsdump.', confidence: 'verified' },
+  { id: 'rule.linux.sudo.gtfobins', os: 'linux', whenSignals: ['sig.linux.sudo_nopasswd'], recommendsTechniqueId: 'linux.privesc.sudo', rank: 1, rationale: 'Passwordless sudo entry → cross-reference the binary against GTFOBins.', confidence: 'verified' },
+  { id: 'rule.linux.cap_setuid.gtfobins', os: 'linux', whenSignals: ['sig.linux.cap_setuid'], recommendsTechniqueId: 'linux.privesc.caps', rank: 1, rationale: 'cap_setuid binary → GTFOBins capabilities entry to reach uid 0.', confidence: 'verified' },
+  { id: 'rule.linux.docker.escape', os: 'linux', whenSignals: ['sig.linux.docker'], recommendsTechniqueId: 'linux.privesc.docker', rank: 1, rationale: 'docker group → run a container that mounts the host root filesystem.', confidence: 'verified' },
+  { id: 'rule.win.sedebug.lsass', os: 'windows', whenSignals: ['sig.win.sedebug'], recommendsTechniqueId: 'win.privesc.privs', toolBinaryId: 'tool.mimikatz', rank: 1, rationale: 'SeDebug → open a protected process (LSASS) and dump credentials.', confidence: 'verified' },
+  { id: 'rule.win.backupoperators.hive', os: 'windows', whenSignals: ['sig.win.backupoperators'], recommendsTechniqueId: 'win.privesc.privs', toolBinaryId: 'tool.impacket', rank: 1, rationale: 'Backup Operators → read SAM/SYSTEM hives → offline secretsdump.', confidence: 'verified' },
+  { id: 'rule.win.serveroperators.svc', os: 'windows', whenSignals: ['sig.win.serveroperators'], recommendsTechniqueId: 'win.privesc.services', rank: 1, rationale: 'Server Operators → reconfigure a service binPath to run a chosen binary as SYSTEM.', confidence: 'verified' },
+  { id: 'rule.win.seloaddriver.byovd', os: 'windows', whenSignals: ['sig.win.seloaddriver'], recommendsTechniqueId: 'win.privesc.privs', rank: 5, rationale: 'SeLoadDriver → load a vulnerable signed driver (BYOVD).', unverifiedReason: 'BYOVD availability is target-specific and not machine-verifiable.', confidence: 'unverified', references: ['ref.hacktricks'] },
+  { id: 'rule.win.semanagevolume.write', os: 'windows', whenSignals: ['sig.win.semanagevolume'], recommendsTechniqueId: 'win.privesc.privs', rank: 5, rationale: 'SeManageVolume → arbitrary file-write primitive.', unverifiedReason: 'The write-primitive path is target-specific and not machine-verifiable.', confidence: 'unverified', references: ['ref.hacktricks'] },
+];

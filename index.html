@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-os="linux">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Strict offline CSP: 'self' only — connect-src 'self' permits the same-origin,
+         precached content fetch (public/content/*.json); ALL third-party network is
+         blocked. style-src allows inline var(--cph-*) styles. No runtime external net. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'"
+    />
+    <meta
+      name="description"
+      content="Cephalo — offline-first, copy-paste-ready OSCP command-and-technique engine. Set your variables once; Octo summons every Linux, Windows, and Active Directory command. Authorized testing only."
+    />
+    <title>Cephalo — OSCP Command Engine</title>
+    <!-- Theme tokens + app CSS are imported from src/main.tsx (Vite bundles them).
+         base = :root fallback; realm files re-skin via [data-os]. -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      Cephalo is an offline JavaScript application. Please enable JavaScript to run the instrument.
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

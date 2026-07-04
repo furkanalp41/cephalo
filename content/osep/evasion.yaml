@@ -1,0 +1,138 @@
+sections:
+  - id: osep.p0
+    title: 'OSEP — Evasion & client-side'
+    os: windows
+    order: 400
+    techniques:
+      [
+        osep.theory.os,
+        osep.clientside.office,
+        osep.clientside.jscript,
+        osep.inject.process,
+        osep.evasion.intro,
+        osep.evasion.applocker,
+      ]
+    packs: [osep]
+techniques:
+  - id: osep.theory.os
+    title: 'OS & programming theory'
+    os: [windows]
+    phase: post-exploitation
+    summary: 'PE/loader and Win32 API fundamentals that underpin evasion and injection.'
+    commands: [osep.theory.os.info]
+    tags: [osep]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.clientside.office
+    title: 'Client-side execution (Office)'
+    os: [windows]
+    phase: initial-access
+    summary: 'Office macro delivery — methodology + macro-security enumeration only; no weaponized macro ships.'
+    commands: [osep.clientside.office.enum]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.clientside.jscript
+    title: 'Client-side execution (JScript)'
+    os: [windows]
+    phase: initial-access
+    summary: 'JScript/.hta vector concept — the human supplies the script; Cephalo ships none.'
+    commands: [osep.clientside.jscript.run]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.inject.process
+    title: 'Process injection & migration'
+    os: [windows]
+    phase: post-exploitation
+    summary: 'Remote-thread / APC migration theory plus tool provenance — no loader code is shipped.'
+    commands: [osep.inject.process.enum]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.evasion.intro
+    title: 'Intro AV evasion'
+    os: [windows]
+    phase: post-exploitation
+    summary: 'Signature vs heuristic vs behavioral detection — how to enumerate and reason, not bypass.'
+    commands: [osep.evasion.intro.status]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+  - id: osep.evasion.applocker
+    title: 'Application-whitelisting bypass'
+    os: [windows]
+    phase: post-exploitation
+    summary: 'Enumerate the effective AppLocker policy; cross-reference LOLBAS for allowed-binary execution.'
+    commands: [osep.evasion.applocker.enum]
+    relatedIds: [win.lolbas]
+    tags: [osep, evasion]
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    confidence: verified
+    packs: [osep]
+commands:
+  - id: osep.theory.os.info
+    title: 'OS build enumeration'
+    template: 'Get-CimInstance Win32_OperatingSystem | Select-Object Caption,BuildNumber'
+    shell: powershell
+    os: [windows]
+    tags: [osep]
+    danger: info
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.clientside.office.enum
+    title: 'Macro-security policy check'
+    template: 'Get-ItemProperty "HKCU:\Software\Policies\Microsoft\Office\16.0\Word\Security"'
+    shell: powershell
+    os: [windows]
+    tags: [osep, evasion]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.clientside.jscript.run
+    title: 'Run a JScript file (cscript)'
+    template: 'cscript //nologo {{PAYLOAD}}'
+    shell: cmd
+    os: [windows]
+    tags: [osep, evasion]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.inject.process.enum
+    title: 'Enumerate session-1 processes'
+    template: 'Get-Process | Where-Object { $_.SessionId -eq 1 }'
+    shell: powershell
+    os: [windows]
+    tags: [osep, evasion]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.evasion.intro.status
+    title: 'Defender status enumeration'
+    template: 'Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled'
+    shell: powershell
+    os: [windows]
+    tags: [osep, evasion]
+    danger: info
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]
+  - id: osep.evasion.applocker.enum
+    title: 'Effective AppLocker policy'
+    template: 'Get-AppLockerPolicy -Effective -Xml'
+    shell: powershell
+    os: [windows]
+    tags: [osep, evasion]
+    danger: medium
+    confidence: verified
+    references: [ref.osce3.joas, ref.osep.chvancooten]
+    packs: [osep]

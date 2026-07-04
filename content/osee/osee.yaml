@@ -1,0 +1,116 @@
+sections:
+  - id: osee.p0
+    title: 'OSEE — Advanced Windows exploitation (reference)'
+    os: windows
+    order: 600
+    techniques:
+      [
+        osee.usermode.mitigations,
+        osee.heap.escape,
+        osee.wdeg.disarm,
+        osee.kernel.re,
+        osee.kernel.mitigations,
+      ]
+    packs: [osee]
+techniques:
+  - id: osee.usermode.mitigations
+    title: 'User-mode mitigations'
+    os: [windows]
+    phase: exploitation
+    summary: 'Concept overview of user-mode exploit mitigations and how to enumerate them. Deep hands-on lives in Ringzero.'
+    commands: [osee.usermode.mitigations.enum]
+    tags: [osee, exploit-dev]
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    confidence: unverified
+    packs: [osee]
+  - id: osee.heap.escape
+    title: 'Heap manipulation & escapes'
+    os: [windows]
+    phase: exploitation
+    summary: 'Concept overview of heap grooming and sandbox-escape primitives. Deep hands-on lives in Ringzero.'
+    commands: [osee.heap.escape.state]
+    tags: [osee, exploit-dev]
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    confidence: unverified
+    packs: [osee]
+  - id: osee.wdeg.disarm
+    title: 'Disarming WDEG / EMET-style mitigations'
+    os: [windows]
+    phase: exploitation
+    summary: 'Concept overview of reasoning about per-process mitigation policy. Deep hands-on lives in Ringzero.'
+    commands: [osee.wdeg.disarm.policy]
+    tags: [osee, exploit-dev]
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    confidence: unverified
+    packs: [osee]
+  - id: osee.kernel.re
+    title: 'Kernel reversing'
+    os: [windows]
+    phase: exploitation
+    summary: 'Concept overview of triaging kernel objects and structures. Deep hands-on lives in Ringzero.'
+    commands: [osee.kernel.re.proc]
+    tags: [osee, exploit-dev]
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    confidence: unverified
+    packs: [osee]
+  - id: osee.kernel.mitigations
+    title: 'Kernel mitigations'
+    os: [windows]
+    phase: exploitation
+    summary: 'Concept overview of kernel pool hardening and how to inspect it. Deep hands-on lives in Ringzero.'
+    commands: [osee.kernel.mitigations.pool]
+    tags: [osee, exploit-dev]
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    confidence: unverified
+    packs: [osee]
+commands:
+  - id: osee.usermode.mitigations.enum
+    title: 'Enumerate system mitigation policy'
+    template: 'Get-ProcessMitigation -System'
+    shell: powershell
+    os: [windows]
+    tags: [osee]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    packs: [osee]
+  - id: osee.heap.escape.state
+    title: 'Inspect heap state'
+    template: '!heap -s'
+    shell: text
+    os: [windows]
+    tags: [osee]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    packs: [osee]
+  - id: osee.wdeg.disarm.policy
+    title: 'Per-process mitigation policy'
+    template: 'Get-ProcessMitigation -Name {{MODULE}}'
+    shell: powershell
+    os: [windows]
+    tags: [osee]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    packs: [osee]
+  - id: osee.kernel.re.proc
+    title: 'List processes (kernel view)'
+    template: '!process 0 0'
+    shell: text
+    os: [windows]
+    tags: [osee]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    packs: [osee]
+  - id: osee.kernel.mitigations.pool
+    title: 'Inspect kernel pool'
+    template: '!pool'
+    shell: text
+    os: [windows]
+    tags: [osee]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osee.nccmitigations, ref.ringzero]
+    packs: [osee]

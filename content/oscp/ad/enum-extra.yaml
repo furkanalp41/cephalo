@@ -1,0 +1,359 @@
+# Cephalo content — AD enumeration (extended: AD-1 unauth + AD-2 authenticated gaps).
+# Authorized testing only. Templates double-quoted; existing registry vars only.
+sections:
+  - id: ad.p10.enum2
+    title: AD Enumeration (extended)
+    os: ad
+    phase: enumeration
+    order: 105
+    description: Anonymous LDAP, RID cycling, DNS, SMB signing, GPP/SYSVOL, LAPS/gMSA, trusts.
+    techniques:
+      - ad.enum.ldap-anon
+      - ad.enum.rid
+      - ad.enum.dns
+      - ad.enum.signing
+      - ad.enum.powerview
+      - ad.enum.ldd
+      - ad.enum.gpp
+      - ad.enum.laps-gmsa
+      - ad.enum.trusts
+    packs: [oscp]
+
+techniques:
+  - id: ad.enum.ldap-anon
+    title: LDAP anonymous bind enumeration
+    os: [ad]
+    phase: enumeration
+    summary: Read naming contexts, users and computers over an anonymous LDAP bind.
+    body: |
+      Some DCs permit anonymous LDAP. Read the base DSE for naming contexts, then
+      dump user/computer objects without credentials.
+    commands: [ad.enum.ldapanon.base, ad.enum.ldapanon.users]
+    tags: [ldap, enumeration]
+    ports: [389]
+    services: [ldap]
+    archetypeBand: high
+    requiredForOscpReadiness: true
+    references: [ref.adsecurity, ref.netexec]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.rid
+    title: RID cycling / SID brute
+    os: [ad]
+    phase: enumeration
+    summary: Enumerate domain accounts by brute-forcing RIDs off the domain SID.
+    commands: [ad.enum.rid.nxc, ad.enum.rid.lookupsid]
+    tags: [smb, netexec, enumeration]
+    ports: [445]
+    services: [smb]
+    archetypeBand: high
+    requiredForOscpReadiness: true
+    references: [ref.netexec, ref.impacket]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.dns
+    title: AD DNS enumeration
+    os: [ad]
+    phase: enumeration
+    summary: Discover DCs and services via SRV records; attempt a zone transfer.
+    commands: [ad.enum.dns.srv, ad.enum.dns.axfr]
+    tags: [dns, enumeration]
+    ports: [53]
+    services: [dns]
+    archetypeBand: medium
+    references: [ref.nmap]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.signing
+    title: SMB signing check
+    os: [ad]
+    phase: enumeration
+    summary: Identify hosts with SMB signing not required — the relay targets.
+    body: |
+      NTLM relay only works against hosts where SMB signing is not required. The
+      netexec banner reports signing status per host.
+    commands: [ad.enum.signing.nxc]
+    tags: [smb, netexec, enumeration]
+    ports: [445]
+    services: [smb]
+    archetypeBand: high
+    references: [ref.netexec]
+    confidence: verified
+    packs: [oscp]
+    relatedIds: [ad.cred.relay]
+
+  - id: ad.enum.powerview
+    title: PowerView domain enumeration
+    os: [ad]
+    phase: enumeration
+    summary: On-host AD recon (users, groups, ACLs, delegation) with PowerView.
+    commands: [ad.enum.powerview.users, ad.enum.powerview.spns]
+    tags: [ad, enumeration]
+    archetypeBand: high
+    references: [ref.powerview]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.ldd
+    title: ldapdomaindump
+    os: [ad]
+    phase: enumeration
+    summary: Dump the whole directory (users/groups/computers/policy) to HTML/JSON.
+    commands: [ad.enum.ldd.dump]
+    tags: [ldap, enumeration]
+    ports: [389]
+    services: [ldap]
+    archetypeBand: medium
+    references: [ref.ldapdomaindump]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.gpp
+    title: GPP cpassword / SYSVOL
+    os: [ad]
+    phase: enumeration
+    summary: Hunt SYSVOL for Group Policy Preferences passwords (decryptable cpassword).
+    body: |
+      GPP stored credentials in SYSVOL with a Microsoft-published AES key, so any
+      authenticated user can recover them. netexec's gpp_password module decrypts.
+    commands: [ad.enum.gpp.nxc, ad.enum.sysvol]
+    tags: [smb, netexec, creds]
+    services: [smb]
+    archetypeBand: high
+    references: [ref.netexec, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.laps-gmsa
+    title: LAPS & gMSA password read
+    os: [ad]
+    phase: enumeration
+    summary: Read LAPS local-admin passwords and gMSA managed passwords you have rights to.
+    commands: [ad.enum.laps.nxc, ad.enum.gmsa.nxc]
+    tags: [ldap, netexec, creds]
+    services: [ldap]
+    archetypeBand: high
+    references: [ref.netexec]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.enum.trusts
+    title: Domain trust enumeration
+    os: [ad]
+    phase: enumeration
+    summary: Map trust relationships, direction and transitivity for cross-domain paths.
+    commands: [ad.enum.trusts.nxc, ad.enum.trusts.nltest]
+    tags: [ad, enumeration]
+    archetypeBand: medium
+    references: [ref.netexec, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+commands:
+  - id: ad.enum.ldapanon.base
+    title: Anonymous base-DSE read
+    template: "ldapsearch -x -H ldap://{{DC_IP}} -s base namingcontexts"
+    tool: ldapsearch
+    description: Read the RootDSE for naming contexts over an anonymous bind.
+    os: [ad]
+    phase: enumeration
+    tags: [ldap]
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.ldapanon.users
+    title: Anonymous user dump
+    template: "ldapsearch -x -H ldap://{{DC_IP}} -b 'DC=corp,DC=local' '(objectClass=user)' sAMAccountName"
+    tool: ldapsearch
+    description: Dump usernames anonymously (adjust the base DN to the target domain).
+    os: [ad]
+    phase: enumeration
+    tags: [ldap]
+    notes:
+      - "Replace DC=corp,DC=local with the real domain components."
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.rid.nxc
+    title: RID brute (netexec)
+    template: "netexec smb {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --rid-brute"
+    tool: netexec
+    description: Enumerate principals by cycling RIDs; works with a guest/low-priv account.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, netexec]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.rid.lookupsid
+    title: lookupsid (impacket)
+    template: "impacket-lookupsid '{{DOMAIN}}/{{USER}}:{{PASS}}'@{{DC_IP}}"
+    tool: impacket
+    description: Resolve the domain SID and brute RIDs to names.
+    os: [ad]
+    phase: enumeration
+    tags: [ad]
+    notes:
+      - "A null session (-no-pass with empty user) works on permissive DCs."
+    confidence: verified
+    references: [ref.impacket]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.dns.srv
+    title: SRV record discovery
+    template: "nslookup -type=SRV _ldap._tcp.dc._msdcs.{{DOMAIN}} {{DC_IP}}"
+    tool: nslookup
+    description: Locate DCs and AD services via _msdcs SRV records.
+    os: [ad]
+    phase: enumeration
+    tags: [dns]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.dns.axfr
+    title: Zone transfer attempt
+    template: "dig axfr {{DOMAIN}} @{{DC_IP}}"
+    tool: dig
+    description: Try a full DNS zone transfer (rarely allowed, high value when it is).
+    os: [ad]
+    phase: enumeration
+    tags: [dns]
+    confidence: verified
+    references: [ref.nmap]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.signing.nxc
+    title: Signing status (netexec)
+    template: "netexec smb {{RHOST}}"
+    tool: netexec
+    description: The banner shows '(signing:False)' on relayable hosts.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, netexec]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.powerview.users
+    title: PowerView — domain users
+    template: "Get-DomainUser -Properties samaccountname,description,memberof | Format-List"
+    shell: powershell
+    description: Enumerate users and descriptions (descriptions often hold passwords).
+    os: [ad]
+    phase: enumeration
+    tags: [ad]
+    confidence: verified
+    references: [ref.powerview]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.powerview.spns
+    title: PowerView — SPN accounts
+    template: "Get-DomainUser -SPN | Select-Object samaccountname,serviceprincipalname"
+    shell: powershell
+    description: List Kerberoastable accounts on-host.
+    os: [ad]
+    phase: enumeration
+    tags: [ad, kerberos]
+    confidence: verified
+    references: [ref.powerview]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.ldd.dump
+    title: ldapdomaindump
+    template: "ldapdomaindump -u '{{DOMAIN}}\\\\{{USER}}' -p '{{PASS}}' ldap://{{DC_IP}}"
+    tool: ldapdomaindump
+    description: Dump the directory to browsable HTML/JSON/Greppable files.
+    os: [ad]
+    phase: enumeration
+    tags: [ldap]
+    confidence: verified
+    references: [ref.ldapdomaindump]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.gpp.nxc
+    title: GPP cpassword (netexec)
+    template: "netexec smb {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' -M gpp_password"
+    tool: netexec
+    description: Find and decrypt GPP cpassword blobs in SYSVOL.
+    os: [ad]
+    phase: enumeration
+    tags: [smb, netexec, creds]
+    confidence: verified
+    references: [ref.netexec]
+    danger: medium
+    packs: [oscp]
+  - id: ad.enum.sysvol
+    title: Browse SYSVOL
+    template: "smbclient //{{DC_IP}}/SYSVOL -U '{{USER}}%{{PASS}}'"
+    tool: smbclient
+    description: Manually browse SYSVOL for scripts, GPP XML and secrets.
+    os: [ad]
+    phase: enumeration
+    tags: [smb]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+
+  - id: ad.enum.laps.nxc
+    title: Read LAPS (netexec)
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' -M laps"
+    tool: netexec
+    description: Recover LAPS-managed local admin passwords you can read.
+    os: [ad]
+    phase: enumeration
+    tags: [ldap, netexec, creds]
+    confidence: verified
+    references: [ref.netexec]
+    danger: medium
+    packs: [oscp]
+  - id: ad.enum.gmsa.nxc
+    title: Read gMSA (netexec)
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' --gmsa"
+    tool: netexec
+    description: Dump gMSA managed-password NT hashes you have rights to read.
+    os: [ad]
+    phase: enumeration
+    tags: [ldap, netexec, creds]
+    confidence: verified
+    references: [ref.netexec]
+    danger: medium
+    packs: [oscp]
+
+  - id: ad.enum.trusts.nxc
+    title: Enumerate trusts (netexec)
+    template: "netexec ldap {{DC_IP}} -u '{{USER}}' -p '{{PASS}}' -M enum_trusts"
+    tool: netexec
+    description: List trust relationships from LDAP.
+    os: [ad]
+    phase: enumeration
+    tags: [ad]
+    confidence: verified
+    references: [ref.netexec]
+    danger: low
+    packs: [oscp]
+  - id: ad.enum.trusts.nltest
+    title: Enumerate trusts (nltest)
+    template: "nltest /domain_trusts /all_trusts"
+    shell: cmd
+    description: On-host trust listing with direction.
+    os: [ad]
+    phase: enumeration
+    tags: [ad]
+    confidence: verified
+    references: [ref.adsecurity]
+    danger: low
+    packs: [oscp]

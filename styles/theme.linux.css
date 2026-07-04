@@ -1,0 +1,26 @@
+/* styles/theme.linux.css — REALM: linux "Phosphor Reef".
+ * Identical to the :root base; shipped explicitly so realm switching is symmetric.
+ * Overrides only keys already declared in theme.base.css. */
+[data-os='linux'] {
+  --cph-color-bg: #07120f;
+  --cph-color-surface: #0e1f1a;
+  --cph-color-surface-raised: #15302a;
+  --cph-color-border: #244a41;
+  --cph-color-text: #e6f2ec;
+  --cph-color-text-muted: #9fbdb2;
+  --cph-color-primary: #2bd4a8;
+  --cph-color-primary-contrast: #04120d;
+  --cph-color-accent: #f2b33d;
+  --cph-color-focus: #57e6c2;
+  --cph-color-danger: #f0635a;
+  --cph-color-success: #57d08a;
+
+  --cph-octo-tint: #1b6e5e;
+  --cph-octo-thinking: #6aa0ff;
+  --cph-octo-glow: 0 0 32px rgba(43, 212, 168, 0.45);
+
+  --cph-elev-3: 0 6px 18px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(43, 212, 168, 0.1);
+  --cph-elev-4: 0 14px 40px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(43, 212, 168, 0.14);
+}

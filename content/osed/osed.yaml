@@ -1,0 +1,251 @@
+sections:
+  - id: osed.p0
+    title: 'OSED — Windows exploit-dev (reference)'
+    os: windows
+    order: 500
+    techniques:
+      [
+        osed.windbg,
+        osed.stack.bof,
+        osed.seh,
+        osed.ida,
+        osed.egghunter,
+        osed.shellcode,
+        osed.re.bugs,
+        osed.depaslr,
+        osed.formatstring,
+        osed.rop,
+      ]
+    packs: [osed]
+techniques:
+  - id: osed.windbg
+    title: 'WinDbg + mona workflow'
+    os: [windows]
+    phase: exploitation
+    summary: 'Attach, find the cyclic pattern in memory, and drive mona — offsets are target-specific. Deep walk-through lives in Ringzero.'
+    commands: [osed.windbg.findmsp]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.stack.bof
+    title: 'Stack buffer overflow'
+    os: [windows]
+    phase: exploitation
+    summary: 'Crash, find the offset to the saved return address, then redirect execution. The offset is per-target; never assume one.'
+    commands: [osed.stack.bof.create, osed.stack.bof.offset]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.seh
+    title: 'SEH-based overflow'
+    os: [windows]
+    phase: exploitation
+    summary: 'Overwrite the SEH chain and pivot via POP/POP/RET — gadget choice depends on the loaded module.'
+    commands: [osed.seh.mona]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.ida
+    title: 'Static/dynamic triage'
+    os: [windows]
+    phase: exploitation
+    summary: 'Triage the crash and reason about the faulting instruction before building the exploit. Reversing depth lives in Ringzero.'
+    commands: [osed.ida.analyze]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.egghunter
+    title: 'Egghunters'
+    os: [windows]
+    phase: exploitation
+    summary: 'Stage a small hunter that searches memory for your tagged payload when space is tight.'
+    commands: [osed.egghunter.mona, osed.egghunter.msfvenom]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.shellcode
+    title: 'Custom shellcode'
+    os: [windows]
+    phase: exploitation
+    summary: 'Assemble position-independent code and validate it under the debugger. Bad chars are target-specific.'
+    commands: [osed.shellcode.nasm]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.re.bugs
+    title: 'Finding the bug'
+    os: [windows]
+    phase: exploitation
+    summary: 'Walk the exception chain to locate the controllable corruption. Reversing depth lives in Ringzero.'
+    commands: [osed.re.bugs.exchain]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.depaslr
+    title: 'DEP / ASLR bypass'
+    os: [windows]
+    phase: exploitation
+    summary: 'Locate usable functions/pointers to defeat non-exec memory; addresses are per-build. Deep ROP lives in Ringzero.'
+    commands: [osed.depaslr.ropfunc]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.formatstring
+    title: 'Format-string bugs'
+    os: [windows]
+    phase: exploitation
+    summary: 'Find and reason about a controllable format specifier as a read/write primitive.'
+    commands: [osed.formatstring.find]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+  - id: osed.rop
+    title: 'ROP chains'
+    os: [windows]
+    phase: exploitation
+    summary: 'Build a return-oriented chain to mark the payload executable; gadgets are module/version-specific. Deep ROP lives in Ringzero.'
+    commands: [osed.rop.mona, osed.rop.jmp]
+    tags: [osed, exploit-dev]
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    confidence: unverified
+    packs: [osed]
+commands:
+  - id: osed.windbg.findmsp
+    title: 'mona findmsp'
+    template: '!py mona findmsp'
+    shell: text
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.stack.bof.create
+    title: 'Cyclic pattern create'
+    template: 'msf-pattern_create -l {{LENGTH}}'
+    shell: bash
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.stack.bof.offset
+    title: 'Cyclic pattern offset'
+    template: 'msf-pattern_offset -l {{LENGTH}} -q {{EIP}}'
+    shell: bash
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.seh.mona
+    title: 'mona seh'
+    template: '!mona seh -m {{MODULE}}'
+    shell: cmd
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.ida.analyze
+    title: 'Crash analysis'
+    template: '!analyze -v'
+    shell: text
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.egghunter.mona
+    title: 'mona egghunter'
+    template: '!mona egg -t w00t'
+    shell: cmd
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.egghunter.msfvenom
+    title: 'msfvenom tagged payload'
+    template: 'msfvenom -p windows/exec CMD={{CMD}} -e x86/shikata_ga_nai EXITFUNC=thread -f c'
+    shell: bash
+    os: [windows]
+    tags: [osed]
+    danger: high
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.shellcode.nasm
+    title: 'nasm assemble'
+    template: 'nasm -f bin egg.asm -o egg.bin'
+    shell: bash
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.re.bugs.exchain
+    title: 'Inspect exception chain'
+    template: '!exchain'
+    shell: text
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.depaslr.ropfunc
+    title: 'mona ropfunc'
+    template: '!mona ropfunc -m {{MODULE}}'
+    shell: cmd
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.formatstring.find
+    title: 'mona find %n'
+    template: '!mona find -s "%n" -m {{MODULE}}'
+    shell: cmd
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.rop.mona
+    title: 'mona rop'
+    template: '!mona rop -m {{MODULES}} -cpb ''{{BADCHARS}}'''
+    shell: cmd
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]
+  - id: osed.rop.jmp
+    title: 'mona jmp esp'
+    template: '!mona jmp -r esp -m {{MODULE}}'
+    shell: cmd
+    os: [windows]
+    tags: [osed]
+    danger: info
+    confidence: unverified
+    references: [ref.osce3.joas, ref.osed.epi052, ref.corelan, ref.ringzero]
+    packs: [osed]

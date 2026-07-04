@@ -1,0 +1,86 @@
+# Cephalo content — AD auth/credential concept nodes (AD-3) + path composition (AD-9).
+# Authorized testing only. Concept techniques carry prose only (commands: []).
+sections:
+  - id: ad.p10.concepts
+    title: AD Concepts (auth, credentials, paths)
+    os: ad
+    phase: credential-access
+    order: 98
+    description: How NTLM and Kerberos work, what each credential form unlocks, and how paths compose.
+    techniques: [ad.concept.ntlm, ad.concept.kerberos, ad.concept.credforms, ad.concept.pathcomp]
+    packs: [oscp]
+
+techniques:
+  - id: ad.concept.ntlm
+    title: NTLM authentication flow
+    os: [ad]
+    phase: credential-access
+    summary: Challenge/response over the NT hash — and why the hash itself is enough.
+    body: |
+      NTLM is a challenge/response handshake: the server sends a challenge, the
+      client returns a response computed from the account's NT hash. Because the
+      response derives from the **hash, not the password**, possessing the NT hash is
+      sufficient to authenticate — this is what makes Pass-the-Hash work. Captured
+      NetNTLMv2 responses are crackable offline or relayable live (signing permitting).
+    commands: []
+    tags: [ntlm, concept]
+    archetypeBand: high
+    references: [ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.concept.kerberos
+    title: Kerberos flow (AS-REQ → TGT → TGS)
+    os: [ad]
+    phase: credential-access
+    summary: TGT then per-service TGS — and where each ticket can be abused.
+    body: |
+      The client sends an AS-REQ (pre-auth encrypted with its key) and receives a
+      TGT encrypted with the krbtgt key. It then presents the TGT in a TGS-REQ to
+      obtain a service ticket (TGS) for an SPN. Abuses map cleanly onto the flow:
+      AS-REP roasting (no pre-auth), Kerberoasting (the TGS for an SPN), overpass-the-
+      hash (hash/key → TGT), Golden (forge a TGT from krbtgt), Silver (forge a TGS
+      from a service key).
+    commands: []
+    tags: [kerberos, concept]
+    archetypeBand: high
+    references: [ref.ms-kerberos, ref.rfc4120]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.concept.credforms
+    title: Credential forms map
+    os: [ad]
+    phase: credential-access
+    summary: What each credential form (cleartext / NT hash / AES / TGT / TGS / DPAPI) unlocks.
+    body: |
+      Cleartext → anything (auth, Kerberos, NTLM). NT hash → Pass-the-Hash + overpass-
+      the-hash (→TGT). AES key → Pass-the-Key (quieter than RC4). TGT → Pass-the-Ticket
+      to any service the user can reach. TGS → one specific service (Silver/Kerberoast).
+      DPAPI masterkeys → decrypt browser/credential-manager secrets. Knowing which form
+      you hold tells you exactly which lateral cards apply.
+    commands: []
+    tags: [credential-access, concept]
+    archetypeBand: high
+    references: [ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
+
+  - id: ad.concept.pathcomp
+    title: Path composition → Domain Admin
+    os: [ad]
+    phase: credential-access
+    summary: How roasting, ACLs, delegation and ADCS chain into a path to DA.
+    body: |
+      Real domains fall by **composition**, not a single bug: a sprayed/roasted
+      credential gives a foothold; a BloodHound ACL edge (GenericAll/WriteDACL) grants
+      control of a better principal; delegation or ADCS (ESC) turns that into a
+      privileged ticket/cert; DCSync or NTDS extraction finishes it. The AD mindmap's
+      "Have valid creds?" decision and its converging edges to **Domain Admin** are
+      exactly these composed paths — follow the glowing lineage.
+    commands: []
+    tags: [bloodhound, concept]
+    archetypeBand: high
+    references: [ref.bloodhound, ref.adsecurity]
+    confidence: verified
+    packs: [oscp]
