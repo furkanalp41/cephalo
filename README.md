@@ -74,7 +74,7 @@ Vite 6 · React 18 · TypeScript (strict) · TanStack Router (hash routing) ·
 Zustand · MiniSearch · @xyflow/react · Zod · Vitest · Playwright ·
 vite‑plugin‑pwa (offline precache).
 
----
+----
 
 *Cephalo, offline ve tamamen deterministik bir OSCP/OSCE³ komut referansıdır —
 yapay zekâ yok, ağ yok, telemetri yok. Yalnızca yetkili olduğunuz sistemlerde,
